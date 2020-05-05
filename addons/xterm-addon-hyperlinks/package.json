@@ -1,0 +1,21 @@
+{
+  "name": "xterm-addon-hyperlinks",
+  "version": "0.1.0",
+  "author": {
+    "name": "The xterm.js authors",
+    "url": "https://xtermjs.org/"
+  },
+  "main": "lib/xterm-addon-hyperlinks.js",
+  "types": "typings/xterm-addon-hyperlinks.d.ts",
+  "repository": "https://github.com/xtermjs/xterm.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "../../node_modules/.bin/tsc -p src",
+    "prepackage": "npm run build",
+    "package": "../../node_modules/.bin/webpack",
+    "prepublishOnly": "npm run package"
+  },
+  "peerDependencies": {
+    "xterm": "^4.0.0"
+  }
+}

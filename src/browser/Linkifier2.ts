@@ -178,7 +178,8 @@ export class Linkifier2 extends Disposable implements ILinkifier2 {
     }
 
     // If we have a start and end row, check that the link is within it
-    if (!startRow || !endRow || (this._currentLink.range.start.y >= startRow && this._currentLink.range.end.y <= endRow)) {
+    // FIXME: needs proper handling of multiple ranges
+    if (!startRow || !endRow || (this._currentLink.ranges[0].start.y >= startRow && this._currentLink.ranges[0].end.y <= endRow)) {
       this._linkLeave(this._element, this._currentLink, this._lastMouseEvent);
       this._currentLink = undefined;
       this._currentLinkState = undefined;
@@ -266,11 +267,13 @@ export class Linkifier2 extends Disposable implements ILinkifier2 {
   }
 
   private _fireUnderlineEvent(link: ILink, showEvent: boolean): void {
-    const range = link.range;
-    const scrollOffset = this._bufferService.buffer.ydisp;
-    const event = this._createLinkUnderlineEvent(range.start.x - 1, range.start.y - scrollOffset - 1, range.end.x, range.end.y - scrollOffset - 1, undefined);
-    const emitter = showEvent ? this._onShowLinkUnderline : this._onHideLinkUnderline;
-    emitter.fire(event);
+    // FIXME: dirty hack to get everything underlined, needs proper handling
+    for (const range of link.ranges) {
+      const scrollOffset = this._bufferService.buffer.ydisp;
+      const event = this._createLinkUnderlineEvent(range.start.x - 1, range.start.y - scrollOffset - 1, range.end.x, range.end.y - scrollOffset - 1, undefined);
+      const emitter = showEvent ? this._onShowLinkUnderline : this._onHideLinkUnderline;
+      emitter.fire(event);
+    }
   }
 
   protected _linkLeave(element: HTMLElement, link: ILink, event: MouseEvent): void {
@@ -294,19 +297,28 @@ export class Linkifier2 extends Disposable implements ILinkifier2 {
    * @param link
    * @param position
    */
-  private _linkAtPosition(link: ILink, position: IBufferCellPosition): boolean {
-    const sameLine = link.range.start.y === link.range.end.y;
-    const wrappedFromLeft = link.range.start.y < position.y;
-    const wrappedToRight = link.range.end.y > position.y;
-
-    // If the start and end have the same y, then the position must be between start and end x
-    // If not, then handle each case seperately, depending on which way it wraps
-    return ((sameLine && link.range.start.x <= position.x && link.range.end.x >= position.x) ||
-      (wrappedFromLeft && link.range.end.x >= position.x) ||
-      (wrappedToRight && link.range.start.x <= position.x) ||
-      (wrappedFromLeft && wrappedToRight)) &&
-      link.range.start.y <= position.y &&
-      link.range.end.y >= position.y;
+  // private _linkAtPosition(link: ILink, position: IBufferCellPosition): boolean {
+  //   const sameLine = link.range.start.y === link.range.end.y;
+  //   const wrappedFromLeft = link.range.start.y < position.y;
+  //   const wrappedToRight = link.range.end.y > position.y;
+  //
+  //   // If the start and end have the same y, then the position must be between start and end x
+  //   // If not, then handle each case seperately, depending on which way it wraps
+  //   return ((sameLine && link.range.start.x <= position.x && link.range.end.x >= position.x) ||
+  //     (wrappedFromLeft && link.range.end.x >= position.x) ||
+  //     (wrappedToRight && link.range.start.x <= position.x) ||
+  //     (wrappedFromLeft && wrappedToRight)) &&
+  //     link.range.start.y <= position.y &&
+  //     link.range.end.y >= position.y;
+  // }
+  // FIXME: proper test against multiple ranges
+  private _linkAtPosition(link: ILink, pos: IBufferCellPosition): boolean {
+    for (const r of link.ranges) {
+      if (r.end.y >= pos.y && r.end.x >= pos.x && r.start.y <= pos.y && r.start.x <= pos.x) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

@@ -7,6 +7,7 @@
     { "path": "./test/benchmark" },
     { "path": "./addons/xterm-addon-attach/src" },
     { "path": "./addons/xterm-addon-fit/src" },
+    { "path": "./addons/xterm-addon-hyperlinks/src" },
     { "path": "./addons/xterm-addon-ligatures/src" },
     { "path": "./addons/xterm-addon-search/src" },
     { "path": "./addons/xterm-addon-serialize/src" },

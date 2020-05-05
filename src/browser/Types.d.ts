@@ -268,7 +268,7 @@ interface ILinkProvider {
 }
 
 interface ILink {
-  range: IBufferRange;
+  ranges: IBufferRange[];
   text: string;
   decorations?: ILinkDecorations;
   activate(event: MouseEvent, text: string): void;

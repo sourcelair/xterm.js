@@ -1114,7 +1114,7 @@ declare module 'xterm' {
     /**
      * The buffer range of the link.
      */
-    range: IBufferRange;
+    ranges: IBufferRange[];
 
     /**
      * The text of the link.

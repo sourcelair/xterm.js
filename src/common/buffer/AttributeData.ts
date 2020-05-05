@@ -130,11 +130,13 @@ export class ExtendedAttrs implements IExtendedAttrs {
     // underline style, NONE is empty
     public underlineStyle: UnderlineStyle = UnderlineStyle.NONE,
     // underline color, -1 is empty (same as FG)
-    public underlineColor: number = -1
+    public underlineColor: number = -1,
+    // url hover id, 0 is empty
+    public urlId = 0
   ) {}
 
   public clone(): IExtendedAttrs {
-    return new ExtendedAttrs(this.underlineStyle, this.underlineColor);
+    return new ExtendedAttrs(this.underlineStyle, this.underlineColor, this.urlId);
   }
 
   /**
@@ -142,6 +144,6 @@ export class ExtendedAttrs implements IExtendedAttrs {
    * that needs to be persistant in the buffer.
    */
   public isEmpty(): boolean {
-    return this.underlineStyle === UnderlineStyle.NONE;
+    return this.underlineStyle === UnderlineStyle.NONE && !this.urlId;
   }
 }

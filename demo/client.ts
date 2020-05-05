@@ -11,6 +11,7 @@
 import { Terminal } from '../out/browser/public/Terminal';
 import { AttachAddon } from '../addons/xterm-addon-attach/out/AttachAddon';
 import { FitAddon } from '../addons/xterm-addon-fit/out/FitAddon';
+import { HyperlinksAddon, DEFAULT_SCHEMES } from '../addons/xterm-addon-hyperlinks/out/HyperlinksAddon';
 import { SearchAddon, ISearchOptions } from '../addons/xterm-addon-search/out/SearchAddon';
 import { SerializeAddon } from '../addons/xterm-addon-serialize/out/SerializeAddon';
 import { WebLinksAddon } from '../addons/xterm-addon-web-links/out/WebLinksAddon';
@@ -36,6 +37,7 @@ export interface IWindowWithTerminal extends Window {
   Terminal?: typeof TerminalType;
   AttachAddon?: typeof AttachAddon;
   FitAddon?: typeof FitAddon;
+  HyperlinksAddon?: typeof HyperlinksAddon;
   SearchAddon?: typeof SearchAddon;
   SerializeAddon?: typeof SerializeAddon;
   WebLinksAddon?: typeof WebLinksAddon;
@@ -50,7 +52,7 @@ let socketURL;
 let socket;
 let pid;
 
-type AddonType = 'attach' | 'fit' | 'search' | 'serialize' | 'unicode11' | 'web-links' | 'webgl';
+type AddonType = 'attach' | 'fit' | 'hyperlinks' | 'search' | 'serialize' | 'unicode11' | 'web-links' | 'webgl';
 
 interface IDemoAddon<T extends AddonType> {
   name: T;
@@ -58,6 +60,7 @@ interface IDemoAddon<T extends AddonType> {
   ctor:
     T extends 'attach' ? typeof AttachAddon :
     T extends 'fit' ? typeof FitAddon :
+    T extends 'hyperlinks' ? typeof HyperlinksAddon:
     T extends 'search' ? typeof SearchAddon :
     T extends 'serialize' ? typeof SerializeAddon :
     T extends 'web-links' ? typeof WebLinksAddon :
@@ -66,6 +69,7 @@ interface IDemoAddon<T extends AddonType> {
   instance?:
     T extends 'attach' ? AttachAddon :
     T extends 'fit' ? FitAddon :
+    T extends 'hyperlinks' ? typeof HyperlinksAddon:
     T extends 'search' ? SearchAddon :
     T extends 'serialize' ? SerializeAddon :
     T extends 'web-links' ? WebLinksAddon :
@@ -77,6 +81,7 @@ interface IDemoAddon<T extends AddonType> {
 const addons: { [T in AddonType]: IDemoAddon<T>} = {
   attach: { name: 'attach', ctor: AttachAddon, canChange: false },
   fit: { name: 'fit', ctor: FitAddon, canChange: false },
+  hyperlinks: { name: 'hyperlinks', ctor: HyperlinksAddon, canChange: true },
   search: { name: 'search', ctor: SearchAddon, canChange: true },
   serialize: { name: 'serialize', ctor: SerializeAddon, canChange: true },
   'web-links': { name: 'web-links', ctor: WebLinksAddon, canChange: true },
@@ -114,6 +119,7 @@ const disposeRecreateButtonHandler = () => {
     socket = null;
     addons.attach.instance = undefined;
     addons.fit.instance = undefined;
+    addons.hyperlinks.instance = undefined;
     addons.search.instance = undefined;
     addons.serialize.instance = undefined;
     addons.unicode11.instance = undefined;
@@ -130,6 +136,7 @@ if (document.location.pathname === '/test') {
   window.Terminal = Terminal;
   window.AttachAddon = AttachAddon;
   window.FitAddon = FitAddon;
+  window.HyperlinksAddon = HyperlinksAddon;
   window.SearchAddon = SearchAddon;
   window.SerializeAddon = SerializeAddon;
   window.Unicode11Addon = Unicode11Addon;
@@ -157,10 +164,15 @@ function createTerminal(): void {
   addons.search.instance = new SearchAddon();
   addons.serialize.instance = new SerializeAddon();
   addons.fit.instance = new FitAddon();
+  addons.hyperlinks.instance = new HyperlinksAddon();
+  addons.hyperlinks.instance.registerSchemeHandler(DEFAULT_SCHEMES.HTTP);
+  addons.hyperlinks.instance.registerSchemeHandler(DEFAULT_SCHEMES.HTTPS);
+  addons.hyperlinks.instance.registerSchemeHandler(DEFAULT_SCHEMES.FTP);
   addons.unicode11.instance = new Unicode11Addon();
   // TODO: Remove arguments when link provider API is the default
   addons['web-links'].instance = new WebLinksAddon(undefined, undefined, true);
   typedTerm.loadAddon(addons.fit.instance);
+  typedTerm.loadAddon(addons.hyperlinks.instance);
   typedTerm.loadAddon(addons.search.instance);
   typedTerm.loadAddon(addons.serialize.instance);
   typedTerm.loadAddon(addons.unicode11.instance);
@@ -367,6 +379,11 @@ function initAddons(term: TerminalType): void {
       if (checkbox.checked) {
         addon.instance = new addon.ctor();
         term.loadAddon(addon.instance);
+        if (name === 'hyperlinks') {
+          addon.instance.registerSchemeHandler(DEFAULT_SCHEMES.HTTP);
+          addon.instance.registerSchemeHandler(DEFAULT_SCHEMES.HTTPS);
+          addon.instance.registerSchemeHandler(DEFAULT_SCHEMES.FTP);
+        }
         if (name === 'webgl') {
           setTimeout(() => {
             document.body.appendChild((addon.instance as WebglAddon).textureAtlas);

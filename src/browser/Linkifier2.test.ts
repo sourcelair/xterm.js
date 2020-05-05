@@ -42,7 +42,7 @@ describe('Linkifier2', () => {
 
   const link: ILink = {
     text: 'foo',
-    range: {
+    ranges: [{
       start: {
         x: 5,
         y: 1
@@ -51,16 +51,16 @@ describe('Linkifier2', () => {
         x: 7,
         y: 1
       }
-    },
+    }],
     activate: () => { }
   };
 
   it('onShowLinkUnderline event range is correct', done => {
     linkifier.onShowLinkUnderline(e => {
-      assert.equal(link.range.start.x - 1, e.x1);
-      assert.equal(link.range.start.y - 1, e.y1);
-      assert.equal(link.range.end.x, e.x2);
-      assert.equal(link.range.end.y - 1, e.y2);
+      assert.equal(link.ranges[0].start.x - 1, e.x1);
+      assert.equal(link.ranges[0].start.y - 1, e.y1);
+      assert.equal(link.ranges[0].end.x, e.x2);
+      assert.equal(link.ranges[0].end.y - 1, e.y2);
 
       done();
     });
@@ -70,10 +70,10 @@ describe('Linkifier2', () => {
 
   it('onHideLinkUnderline event range is correct', done => {
     linkifier.onHideLinkUnderline(e => {
-      assert.equal(link.range.start.x - 1, e.x1);
-      assert.equal(link.range.start.y - 1, e.y1);
-      assert.equal(link.range.end.x, e.x2);
-      assert.equal(link.range.end.y - 1, e.y2);
+      assert.equal(link.ranges[0].start.x - 1, e.x1);
+      assert.equal(link.ranges[0].start.y - 1, e.y1);
+      assert.equal(link.ranges[0].end.x, e.x2);
+      assert.equal(link.ranges[0].end.y - 1, e.y2);
 
       done();
     });

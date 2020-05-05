@@ -13,6 +13,7 @@
       "test/benchmark/tsconfig.json",
       "addons/xterm-addon-attach/src/tsconfig.json",
       "addons/xterm-addon-fit/src/tsconfig.json",
+      "addons/xterm-addon-hyperlinks/src/tsconfig.json",
       "addons/xterm-addon-search/src/tsconfig.json",
       "addons/xterm-addon-unicode11/src/tsconfig.json",
       "addons/xterm-addon-web-links/src/tsconfig.json",

@@ -87,6 +87,7 @@ export type IColorRGB = [number, number, number];
 export interface IExtendedAttrs {
   underlineStyle: number;
   underlineColor: number;
+  urlId: number;
   clone(): IExtendedAttrs;
   isEmpty(): boolean;
 }

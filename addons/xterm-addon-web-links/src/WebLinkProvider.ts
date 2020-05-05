@@ -68,7 +68,7 @@ export class LinkComputer {
         }
       };
 
-      return { range, text, activate: handler };
+      return { ranges: [range], text, activate: handler };
     }
   }
 
