@@ -3,17 +3,15 @@
  * @license MIT
  */
 
-import { Terminal as ITerminalApi, ITerminalOptions, IMarker, IDisposable, ILinkMatcherOptions, ITheme, ILocalizableStrings, ITerminalAddon, ISelectionPosition, IBuffer as IBufferApi, IBufferNamespace as IBufferNamespaceApi, IBufferLine as IBufferLineApi, IBufferCell as IBufferCellApi, IParser, IFunctionIdentifier, ILinkProvider, IUnicodeHandling, IUnicodeVersionProvider, FontWeight } from 'xterm';
+import { Terminal as ITerminalApi, ITerminalOptions, IMarker, IDisposable, ILinkMatcherOptions, ITheme, ILocalizableStrings, ITerminalAddon, ISelectionPosition, IBufferNamespace as IBufferNamespaceApi, IParser, ILinkProvider, IUnicodeHandling, FontWeight } from 'xterm';
 import { ITerminal } from 'browser/Types';
-import { IBufferLine, ICellData } from 'common/Types';
-import { IBuffer, IBufferSet } from 'common/buffer/Types';
-import { CellData } from 'common/buffer/CellData';
 import { Terminal as TerminalCore } from '../Terminal';
 import * as Strings from '../LocalizableStrings';
-import { IEvent, EventEmitter } from 'common/EventEmitter';
+import { IEvent } from 'common/EventEmitter';
+import { ParserApi } from 'common/public/ParserApi';
+import { UnicodeApi } from 'common/public/UnicodeApi';
 import { AddonManager } from './AddonManager';
-import { IParams } from 'common/parser/Types';
-import { BufferSet } from 'common/buffer/BufferSet';
+import { BufferNamespaceApi } from 'common/public/BufferNamespaceApi';
 
 export class Terminal implements ITerminalApi {
   private _core: ITerminal;
@@ -215,125 +213,5 @@ export class Terminal implements ITerminalApi {
         throw new Error('This API only accepts integers');
       }
     }
-  }
-}
-
-class BufferApiView implements IBufferApi {
-  constructor(
-    private _buffer: IBuffer,
-    public readonly type: 'normal' | 'alternate'
-  ) { }
-
-  public init(buffer: IBuffer): BufferApiView {
-    this._buffer = buffer;
-    return this;
-  }
-
-  public get cursorY(): number { return this._buffer.y; }
-  public get cursorX(): number { return this._buffer.x; }
-  public get viewportY(): number { return this._buffer.ydisp; }
-  public get baseY(): number { return this._buffer.ybase; }
-  public get length(): number { return this._buffer.lines.length; }
-  public getLine(y: number): IBufferLineApi | undefined {
-    const line = this._buffer.lines.get(y);
-    if (!line) {
-      return undefined;
-    }
-    return new BufferLineApiView(line);
-  }
-  public getNullCell(): IBufferCellApi { return new CellData(); }
-}
-
-class BufferNamespaceApi implements IBufferNamespaceApi {
-  private _normal: BufferApiView;
-  private _alternate: BufferApiView;
-  private _onBufferChange = new EventEmitter<IBufferApi>();
-  public get onBufferChange(): IEvent<IBufferApi> { return this._onBufferChange.event; }
-
-  constructor(private _core: ITerminal) {
-    this._normal = new BufferApiView(this._core.buffers.normal, 'normal');
-    this._alternate = new BufferApiView(this._core.buffers.alt, 'alternate');
-    this._core.buffers.onBufferActivate(() => this._onBufferChange.fire(this.active));
-  }
-  public get active(): IBufferApi {
-    if (this._core.buffers.active === this._core.buffers.normal) { return this.normal; }
-    if (this._core.buffers.active === this._core.buffers.alt) { return this.alternate; }
-    throw new Error('Active buffer is neither normal nor alternate');
-  }
-  public get normal(): IBufferApi {
-    return this._normal.init(this._core.buffers.normal);
-  }
-  public get alternate(): IBufferApi {
-    return this._alternate.init(this._core.buffers.alt);
-  }
-}
-
-class BufferLineApiView implements IBufferLineApi {
-  constructor(private _line: IBufferLine) { }
-
-  public get isWrapped(): boolean { return this._line.isWrapped; }
-  public get length(): number { return this._line.length; }
-  public getCell(x: number, cell?: IBufferCellApi): IBufferCellApi | undefined {
-    if (x < 0 || x >= this._line.length) {
-      return undefined;
-    }
-
-    if (cell) {
-      this._line.loadCell(x, <ICellData>cell);
-      return cell;
-    }
-    return this._line.loadCell(x, new CellData());
-  }
-  public translateToString(trimRight?: boolean, startColumn?: number, endColumn?: number): string {
-    return this._line.translateToString(trimRight, startColumn, endColumn);
-  }
-}
-
-class ParserApi implements IParser {
-  constructor(private _core: ITerminal) { }
-
-  public registerCsiHandler(id: IFunctionIdentifier, callback: (params: (number | number[])[]) => boolean): IDisposable {
-    return this._core.addCsiHandler(id, (params: IParams) => callback(params.toArray()));
-  }
-  public addCsiHandler(id: IFunctionIdentifier, callback: (params: (number | number[])[]) => boolean): IDisposable {
-    return this.registerCsiHandler(id, callback);
-  }
-  public registerDcsHandler(id: IFunctionIdentifier, callback: (data: string, param: (number | number[])[]) => boolean): IDisposable {
-    return this._core.addDcsHandler(id, (data: string, params: IParams) => callback(data, params.toArray()));
-  }
-  public addDcsHandler(id: IFunctionIdentifier, callback: (data: string, param: (number | number[])[]) => boolean): IDisposable {
-    return this.registerDcsHandler(id, callback);
-  }
-  public registerEscHandler(id: IFunctionIdentifier, handler: () => boolean): IDisposable {
-    return this._core.addEscHandler(id, handler);
-  }
-  public addEscHandler(id: IFunctionIdentifier, handler: () => boolean): IDisposable {
-    return this.registerEscHandler(id, handler);
-  }
-  public registerOscHandler(ident: number, callback: (data: string) => boolean): IDisposable {
-    return this._core.addOscHandler(ident, callback);
-  }
-  public addOscHandler(ident: number, callback: (data: string) => boolean): IDisposable {
-    return this.registerOscHandler(ident, callback);
-  }
-}
-
-class UnicodeApi implements IUnicodeHandling {
-  constructor(private _core: ITerminal) { }
-
-  public register(provider: IUnicodeVersionProvider): void {
-    this._core.unicodeService.register(provider);
-  }
-
-  public get versions(): string[] {
-    return this._core.unicodeService.versions;
-  }
-
-  public get activeVersion(): string {
-    return this._core.unicodeService.activeVersion;
-  }
-
-  public set activeVersion(version: string) {
-    this._core.unicodeService.activeVersion = version;
   }
 }
