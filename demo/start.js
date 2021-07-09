@@ -66,7 +66,55 @@ const clientConfig = {
   mode: 'development',
   watch: true
 };
-const compiler = webpack(clientConfig);
+
+/**
+ * Blueprint to bundle addon workers.
+ * Expects entry under `./addons/xterm-addon-${addonName}/src-worker/main.ts`.
+ */
+function generateAddonWorker(addonName) {
+  return {
+    entry: `./addons/xterm-addon-${addonName}/src-worker/main.ts`,
+    devtool: 'inline-source-map',
+    module: {
+      rules: [
+        {
+          test: /\.tsx?$/,
+          use: 'ts-loader',
+          exclude: /node_modules/
+        },
+        {
+          test: /\.js$/,
+          use: ["source-map-loader"],
+          enforce: "pre",
+          exclude: /node_modules/
+        }
+      ]
+    },
+    resolve: {
+      modules: [
+        'node_modules',
+        path.resolve(__dirname, '..'),
+        path.resolve(__dirname, '../addons')
+      ],
+      extensions: [ '.tsx', '.ts', '.js' ],
+      alias: {
+        common: path.resolve('./out/common'),
+        browser: path.resolve('./out/browser')
+      }
+    },
+    output: {
+      filename: `xterm-addon-${addonName}-worker.js`,
+      path: path.resolve(__dirname, 'workers')
+    },
+    mode: 'development',
+    watch: true
+  }
+}
+
+const compiler = webpack([
+  clientConfig,
+  generateAddonWorker('image')
+]);
 
 compiler.watch({
   // Example watchOptions

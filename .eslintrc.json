@@ -11,22 +11,7 @@
       "src/common/tsconfig.json",
       "test/api/tsconfig.json",
       "test/benchmark/tsconfig.json",
-      "addons/xterm-addon-attach/src/tsconfig.json",
-      "addons/xterm-addon-attach/test/tsconfig.json",
-      "addons/xterm-addon-fit/src/tsconfig.json",
-      "addons/xterm-addon-fit/test/tsconfig.json",
-      "addons/xterm-addon-ligatures/src/tsconfig.json",
-      "addons/xterm-addon-search/src/tsconfig.json",
-      "addons/xterm-addon-search/test/tsconfig.json",
-      "addons/xterm-addon-serialize/src/tsconfig.json",
-      "addons/xterm-addon-serialize/test/tsconfig.json",
-      "addons/xterm-addon-serialize/benchmark/tsconfig.json",
-      "addons/xterm-addon-unicode11/src/tsconfig.json",
-      "addons/xterm-addon-unicode11/test/tsconfig.json",
-      "addons/xterm-addon-web-links/src/tsconfig.json",
-      "addons/xterm-addon-web-links/test/tsconfig.json",
-      "addons/xterm-addon-webgl/src/tsconfig.json",
-      "addons/xterm-addon-webgl/test/tsconfig.json"
+      "addons/tsconfig.eslint.addons.json"
     ],
     "sourceType": "module"
   },

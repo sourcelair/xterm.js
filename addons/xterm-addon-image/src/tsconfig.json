@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "module": "commonjs",
+    "sourceMap": true,
+    "outDir": "../out",
+    "rootDir": ".",
+    "strict": true,
+    "noUnusedLocals": true,
+    "preserveWatchOutput": true,
+    "types": [
+      "../../../node_modules/@types/mocha"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "browser/*": [ "../../../src/browser/*" ],
+      "common/*": [ "../../../src/common/*" ]
+    }
+  },
+  "include": [
+    "./**/*",
+    "../../../typings/xterm.d.ts"
+  ],
+  "references": [
+    { "path": "../../../src/browser" },
+    { "path": "../../../src/common" }
+  ]
+}

@@ -1,0 +1,11 @@
+**/*.api.js
+**/*.api.ts
+tsconfig.json
+.yarnrc
+webpack.config.js
+
+fixture
+src
+src-worker
+test
+out-test

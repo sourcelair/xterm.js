@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2017",
+    "rootDir": ".",
+    "outDir": "../out-test",
+    "sourceMap": true,
+    "removeComments": true,
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "browser/*": [ "../../../src/browser/*" ],
+      "common/*": [ "../../../src/common/*" ]
+    },
+    "types": [
+      "../../../node_modules/@types/mocha",
+      "../../../node_modules/@types/node",
+      "../../../out-test/api/TestUtils"
+    ]
+  },
+  "include": [
+    "./**/*",
+    "../../../typings/xterm.d.ts"
+  ],
+  "references": [
+    { "path": "../../../src/browser" },
+    { "path": "../../../src/common" }
+  ]
+}

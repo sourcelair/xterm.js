@@ -29,6 +29,32 @@ export const WHITESPACE_CELL_CHAR = ' ';
 export const WHITESPACE_CELL_WIDTH = 1;
 export const WHITESPACE_CELL_CODE = 32;
 
+
+/**
+ * buffer memory layout:
+ *
+ *   |             uint32_t             |        uint32_t         |        uint32_t         |
+ *   |             `content`            |          `FG`           |          `BG`           |
+ *   | wcwidth(2) comb(1) codepoint(21) | flags(8) R(8) G(8) B(8) | flags(8) R(8) G(8) B(8) |
+ */
+
+
+/**
+ * Cell member indices and size.
+ *
+ * Direct access:
+ *    `content = data[column * Cell.SIZE + Cell.CONTENT];`
+ *    `fg = data[column * Cell.SIZE + Cell.FG];`
+ *    `bg = data[column * Cell.SIZE + Cell.BG];`
+ */
+export const enum Cell {
+  CONTENT = 0,  // codepoint and wcwidth information (enum Content)
+  FG = 1,       // foreground color in lower 3 bytes (rgb), attrs in 4th byte (enum FgFlags)
+  BG = 2,       // background color in lower 3 bytes (rgb), attrs in 4th byte (enum BgFlags)
+  SIZE = 3      // size of single cell on buffer array
+}
+
+
 /**
  * Bitmasks for accessing data in `content`.
  */

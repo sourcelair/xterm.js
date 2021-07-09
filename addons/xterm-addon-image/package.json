@@ -1,0 +1,26 @@
+{
+  "name": "xterm-addon-image",
+  "version": "0.0.1",
+  "author": {
+    "name": "The xterm.js authors",
+    "url": "https://xtermjs.org/"
+  },
+  "main": "lib/xterm-addon-image.js",
+  "types": "typings/xterm-addon-image.d.ts",
+  "repository": "https://github.com/xtermjs/xterm.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "../../node_modules/.bin/tsc -p src",
+    "prepackage": "npm run build",
+    "package": "../../node_modules/.bin/webpack",
+    "prepublishOnly": "npm run package"
+  },
+  "peerDependencies": {
+    "xterm": "^4.11.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "png-ts": "^0.0.3",
+    "sixel": "^0.14.0"
+  }
+}

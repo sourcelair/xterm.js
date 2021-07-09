@@ -26,6 +26,19 @@
       <p>Addons can be loaded and unloaded on a particular terminal to extend its functionality.</p>
       <div id="addons-container"></div>
       <h3>Addons Control</h3>
+      <h4>Image Addon</h4>
+      <details>
+        <summary>image addon settings</summary>
+        <p>
+          <label>Storage Limit (in MB) <input type="number" id="image-storagelimit"/></label><br/>
+          <label>Show Placeholder <input type="checkbox" id="image-showplaceholder"/></label>
+          <br/><br/>
+          <label>
+            Ctor options (applied on addon relaunch)<br/>
+            <textarea id="image-options" cols="40" rows="12"></textarea>
+          </label>
+        </p>
+      </details>
       <h4>SearchAddon</h4>
       <p>
         <label>Find next <input id="find-next"/></label>

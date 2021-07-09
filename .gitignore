@@ -4,6 +4,7 @@ node_modules/
 lib/
 out/
 out-test/
+out-worker/
 .nyc_output/
 Makefile.gyp
 *.Makefile
@@ -21,6 +22,7 @@ package-lock.json
 # Keep bundled code out of Git
 dist/
 demo/dist/
+demo/workers/
 
 # dont commit benchmark folders
 .benchmark/

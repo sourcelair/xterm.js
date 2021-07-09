@@ -15,6 +15,7 @@ import { SearchAddon, ISearchOptions } from '../addons/xterm-addon-search/out/Se
 import { SerializeAddon } from '../addons/xterm-addon-serialize/out/SerializeAddon';
 import { WebLinksAddon } from '../addons/xterm-addon-web-links/out/WebLinksAddon';
 import { WebglAddon } from '../addons/xterm-addon-webgl/out/WebglAddon';
+import { ImageAddon, IImageAddonOptions } from '../addons/xterm-addon-image/out/ImageAddon';
 import { Unicode11Addon } from '../addons/xterm-addon-unicode11/out/Unicode11Addon';
 import { LigaturesAddon } from '../addons/xterm-addon-ligatures/out/LigaturesAddon';
 
@@ -38,6 +39,7 @@ export interface IWindowWithTerminal extends Window {
   Terminal?: typeof TerminalType;
   AttachAddon?: typeof AttachAddon;
   FitAddon?: typeof FitAddon;
+  ImageAddon?: typeof ImageAddon;
   SearchAddon?: typeof SearchAddon;
   SerializeAddon?: typeof SerializeAddon;
   WebLinksAddon?: typeof WebLinksAddon;
@@ -53,7 +55,7 @@ let socketURL;
 let socket;
 let pid;
 
-type AddonType = 'attach' | 'fit' | 'search' | 'serialize' | 'unicode11' | 'web-links' | 'webgl' | 'ligatures';
+type AddonType = 'attach' | 'fit' | 'image' | 'ligatures' | 'search' | 'serialize' | 'unicode11' | 'web-links' | 'webgl';
 
 interface IDemoAddon<T extends AddonType> {
   name: T;
@@ -61,20 +63,22 @@ interface IDemoAddon<T extends AddonType> {
   ctor:
     T extends 'attach' ? typeof AttachAddon :
     T extends 'fit' ? typeof FitAddon :
+    T extends 'image' ? typeof ImageAddon :
     T extends 'search' ? typeof SearchAddon :
     T extends 'serialize' ? typeof SerializeAddon :
     T extends 'web-links' ? typeof WebLinksAddon :
     T extends 'unicode11' ? typeof Unicode11Addon :
     T extends 'ligatures' ? typeof LigaturesAddon :
     typeof WebglAddon;
-    instance?:
+  instance?:
     T extends 'attach' ? AttachAddon :
     T extends 'fit' ? FitAddon :
+    T extends 'image' ? ImageAddon :
     T extends 'search' ? SearchAddon :
     T extends 'serialize' ? SerializeAddon :
     T extends 'web-links' ? WebLinksAddon :
     T extends 'webgl' ? WebglAddon :
-    T extends 'unicode11' ? typeof Unicode11Addon :
+    T extends 'unicode11' ? Unicode11Addon :
     T extends 'ligatures' ? typeof LigaturesAddon :
     never;
 }
@@ -82,20 +86,21 @@ interface IDemoAddon<T extends AddonType> {
 const addons: { [T in AddonType]: IDemoAddon<T>} = {
   attach: { name: 'attach', ctor: AttachAddon, canChange: false },
   fit: { name: 'fit', ctor: FitAddon, canChange: false },
+  image: { name: 'image', ctor: ImageAddon, canChange: true },
+  ligatures: { name: 'ligatures', ctor: LigaturesAddon, canChange: true },
   search: { name: 'search', ctor: SearchAddon, canChange: true },
   serialize: { name: 'serialize', ctor: SerializeAddon, canChange: true },
   'web-links': { name: 'web-links', ctor: WebLinksAddon, canChange: true },
   webgl: { name: 'webgl', ctor: WebglAddon, canChange: true },
-  unicode11: { name: 'unicode11', ctor: Unicode11Addon, canChange: true },
-  ligatures: { name: 'ligatures', ctor: LigaturesAddon, canChange: true }
+  unicode11: { name: 'unicode11', ctor: Unicode11Addon, canChange: true }
 };
 
 const terminalContainer = document.getElementById('terminal-container');
 const actionElements = {
-  findNext: <HTMLInputElement>document.querySelector('#find-next'),
-  findPrevious: <HTMLInputElement>document.querySelector('#find-previous')
+  findNext: document.querySelector<HTMLInputElement>('#find-next'),
+  findPrevious: document.querySelector<HTMLInputElement>('#find-previous')
 };
-const paddingElement = <HTMLInputElement>document.getElementById('padding');
+const paddingElement = document.querySelector<HTMLInputElement>('#padding');
 
 function setPadding(): void {
   term.element.style.padding = parseInt(paddingElement.value, 10).toString() + 'px';
@@ -104,9 +109,9 @@ function setPadding(): void {
 
 function getSearchOptions(e: KeyboardEvent): ISearchOptions {
   return {
-    regex: (document.getElementById('regex') as HTMLInputElement).checked,
-    wholeWord: (document.getElementById('whole-word') as HTMLInputElement).checked,
-    caseSensitive: (document.getElementById('case-sensitive') as HTMLInputElement).checked,
+    regex: document.querySelector<HTMLInputElement>('#regex').checked,
+    wholeWord: document.querySelector<HTMLInputElement>('#whole-word').checked,
+    caseSensitive: document.querySelector<HTMLInputElement>('#case-sensitive').checked,
     incremental: e.key !== `Enter`
   };
 }
@@ -120,6 +125,7 @@ const disposeRecreateButtonHandler = () => {
     socket = null;
     addons.attach.instance = undefined;
     addons.fit.instance = undefined;
+    addons.image.instance = undefined;
     addons.search.instance = undefined;
     addons.serialize.instance = undefined;
     addons.unicode11.instance = undefined;
@@ -137,6 +143,7 @@ if (document.location.pathname === '/test') {
   window.Terminal = Terminal;
   window.AttachAddon = AttachAddon;
   window.FitAddon = FitAddon;
+  window.ImageAddon = ImageAddon;
   window.SearchAddon = SearchAddon;
   window.SerializeAddon = SerializeAddon;
   window.Unicode11Addon = Unicode11Addon;
@@ -147,6 +154,7 @@ if (document.location.pathname === '/test') {
   createTerminal();
   document.getElementById('dispose').addEventListener('click', disposeRecreateButtonHandler);
   document.getElementById('serialize').addEventListener('click', serializeButtonHandler);
+  initImageAddonExposed();
 }
 
 function createTerminal(): void {
@@ -167,12 +175,14 @@ function createTerminal(): void {
   addons.serialize.instance = new SerializeAddon();
   addons.fit.instance = new FitAddon();
   addons.unicode11.instance = new Unicode11Addon();
+  addons.image.instance = new ImageAddon();
   // TODO: Remove arguments when link provider API is the default
   addons['web-links'].instance = new WebLinksAddon(undefined, undefined, true);
   typedTerm.loadAddon(addons.fit.instance);
   typedTerm.loadAddon(addons.search.instance);
   typedTerm.loadAddon(addons.serialize.instance);
   typedTerm.loadAddon(addons.unicode11.instance);
+  typedTerm.loadAddon(addons.image.instance);
   typedTerm.loadAddon(addons['web-links'].instance);
 
   window.term = term;  // Expose `term` to window for debugging purposes
@@ -207,8 +217,8 @@ function createTerminal(): void {
   setTimeout(() => {
     initOptions(term);
     // TODO: Clean this up, opt-cols/rows doesn't exist anymore
-    (<HTMLInputElement>document.getElementById(`opt-cols`)).value = term.cols;
-    (<HTMLInputElement>document.getElementById(`opt-rows`)).value = term.rows;
+    document.querySelector<HTMLInputElement>('#opt-cols').valueAsNumber = term.cols;
+    document.querySelector<HTMLInputElement>('#opt-rows').valueAsNumber = term.rows;
     paddingElement.value = '0';
 
     // Set terminal size again to set the specific dimensions on the demo
@@ -333,14 +343,14 @@ function initOptions(term: TerminalType): void {
 
   // Attach listeners
   booleanOptions.forEach(o => {
-    const input = <HTMLInputElement>document.getElementById(`opt-${o}`);
+    const input = document.querySelector<HTMLInputElement>(`#opt-${o}`);
     addDomListener(input, 'change', () => {
       console.log('change', o, input.checked);
       term.setOption(o, input.checked);
     });
   });
   numberOptions.forEach(o => {
-    const input = <HTMLInputElement>document.getElementById(`opt-${o}`);
+    const input = document.querySelector<HTMLInputElement>(`#opt-${o}`);
     addDomListener(input, 'change', () => {
       console.log('change', o, input.value);
       if (o === 'cols' || o === 'rows') {
@@ -354,7 +364,7 @@ function initOptions(term: TerminalType): void {
     });
   });
   Object.keys(stringOptions).forEach(o => {
-    const input = <HTMLInputElement>document.getElementById(`opt-${o}`);
+    const input = document.querySelector<HTMLInputElement>(`#opt-${o}`);
     addDomListener(input, 'change', () => {
       console.log('change', o, input.value);
       term.setOption(o, input.value);
@@ -373,6 +383,17 @@ function initAddons(term: TerminalType): void {
       checkbox.disabled = true;
     }
     addDomListener(checkbox, 'change', () => {
+      if (name === 'image') {
+        if (checkbox.checked) {
+          const ctorOptionsJson = document.querySelector<HTMLTextAreaElement>('#image-options').value;
+          addon.instance = ctorOptionsJson ? new addon.ctor(JSON.parse(ctorOptionsJson)) : new addon.ctor();
+          term.loadAddon(addon.instance);
+        } else {
+          addon.instance!.dispose();
+          addon.instance = undefined;
+        }
+        return;
+      }
       if (checkbox.checked) {
         addon.instance = new addon.ctor();
         term.loadAddon(addon.instance);
@@ -412,8 +433,8 @@ function addDomListener(element: HTMLElement, type: string, handler: (...args: a
 }
 
 function updateTerminalSize(): void {
-  const cols = parseInt((<HTMLInputElement>document.getElementById(`opt-cols`)).value, 10);
-  const rows = parseInt((<HTMLInputElement>document.getElementById(`opt-rows`)).value, 10);
+  const cols = document.querySelector<HTMLInputElement>('#opt-cols').valueAsNumber;
+  const rows = document.querySelector<HTMLInputElement>('#opt-rows').valueAsNumber;
   const width = (cols * term._core._renderService.dimensions.actualCellWidth + term._core.viewport.scrollBarWidth).toString() + 'px';
   const height = (rows * term._core._renderService.dimensions.actualCellHeight).toString() + 'px';
   terminalContainer.style.width = width;
@@ -425,9 +446,47 @@ function serializeButtonHandler(): void {
   const output = addons.serialize.instance.serialize();
   const outputString = JSON.stringify(output);
 
-  document.getElementById('serialize-output').innerText = outputString;
-  if ((document.getElementById('write-to-terminal') as HTMLInputElement).checked) {
+  document.querySelector<HTMLPreElement>('#serialize-output').innerText = outputString;
+  if (document.querySelector<HTMLInputElement>('#write-to-terminal').checked) {
     term.reset();
     term.write(output);
   }
+}
+
+function initImageAddonExposed(): void {
+  const DEFAULT_OPTIONS: IImageAddonOptions = (addons.image.instance as any)._defaultOpts;
+  const limitStorageElement = document.querySelector<HTMLInputElement>('#image-storagelimit');
+  limitStorageElement.valueAsNumber = addons.image.instance.storageLimit;
+  addDomListener(limitStorageElement, 'change', () => {
+    try {
+      addons.image.instance.storageLimit = limitStorageElement.valueAsNumber;
+      limitStorageElement.valueAsNumber = addons.image.instance.storageLimit;
+      console.log('changed storageLimit to', addons.image.instance.storageLimit);
+    } catch (e) {
+      limitStorageElement.valueAsNumber = addons.image.instance.storageLimit;
+      console.log('storageLimit at', addons.image.instance.storageLimit);
+      throw e;
+    }
+  });
+  const showPlaceholderElement = document.querySelector<HTMLInputElement>('#image-showplaceholder');
+  showPlaceholderElement.checked = addons.image.instance.showPlaceholder;
+  addDomListener(showPlaceholderElement, 'change', () => {
+    addons.image.instance.showPlaceholder = showPlaceholderElement.checked;
+  });
+  const ctorOptionsElement = document.querySelector<HTMLTextAreaElement>('#image-options');
+  ctorOptionsElement.value = JSON.stringify(DEFAULT_OPTIONS, null, 2);
+
+  // demo for image retrieval API
+  term.element.addEventListener('click', (ev: MouseEvent) => {
+    if (!ev.ctrlKey || !addons.image.instance) return;
+    const pos = term._core._mouseService!.getCoords(ev, term._core.screenElement!, term.cols, term.rows);
+    const x = pos[0] - 1;
+    const y = pos[1] - 1;
+    const canvas = ev.shiftKey
+      // ctrl+shift+click: get single tile
+      ? addons.image.instance.extractTileAtBufferCell(x, term.buffer.active.viewportY + y)
+      // ctrl+click: get original image
+      : addons.image.instance.getImageAtBufferCell(x, term.buffer.active.viewportY + y);
+    canvas?.toBlob(data => window.open(URL.createObjectURL(data), '_blank'));
+  });
 }

@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "lib": ["webworker", "ES6"],
+    "module": "commonjs",
+    "sourceMap": true,
+    "outDir": "../out-worker",
+    "rootDir": ".",
+    "strict": true,
+    "noUnusedLocals": true,
+    "preserveWatchOutput": true,
+    "types": [
+      "../../../node_modules/@types/mocha"
+    ]
+  },
+  "include": [
+    "./**/*"
+  ]
+}

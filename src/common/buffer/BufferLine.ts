@@ -5,35 +5,9 @@
 
 import { CharData, IBufferLine, ICellData, IAttributeData, IExtendedAttrs } from 'common/Types';
 import { stringFromCodePoint } from 'common/input/TextDecoder';
-import { CHAR_DATA_CHAR_INDEX, CHAR_DATA_WIDTH_INDEX, CHAR_DATA_ATTR_INDEX, NULL_CELL_CHAR, NULL_CELL_WIDTH, NULL_CELL_CODE, WHITESPACE_CELL_CHAR, Content, BgFlags } from 'common/buffer/Constants';
+import { CHAR_DATA_CHAR_INDEX, CHAR_DATA_WIDTH_INDEX, CHAR_DATA_ATTR_INDEX, NULL_CELL_CHAR, NULL_CELL_WIDTH, NULL_CELL_CODE, WHITESPACE_CELL_CHAR, Content, BgFlags, Cell } from 'common/buffer/Constants';
 import { CellData } from 'common/buffer/CellData';
 import { AttributeData, ExtendedAttrs } from 'common/buffer/AttributeData';
-
-/**
- * buffer memory layout:
- *
- *   |             uint32_t             |        uint32_t         |        uint32_t         |
- *   |             `content`            |          `FG`           |          `BG`           |
- *   | wcwidth(2) comb(1) codepoint(21) | flags(8) R(8) G(8) B(8) | flags(8) R(8) G(8) B(8) |
- */
-
-
-/** typed array slots taken by one cell */
-const CELL_SIZE = 3;
-
-/**
- * Cell member indices.
- *
- * Direct access:
- *    `content = data[column * CELL_SIZE + Cell.CONTENT];`
- *    `fg = data[column * CELL_SIZE + Cell.FG];`
- *    `bg = data[column * CELL_SIZE + Cell.BG];`
- */
-const enum Cell {
-  CONTENT = 0,
-  FG = 1, // currently simply holds all known attrs
-  BG = 2  // currently unused
-}
 
 export const DEFAULT_ATTR_DATA = Object.freeze(new AttributeData());
 
@@ -59,7 +33,7 @@ export class BufferLine implements IBufferLine {
   public length: number;
 
   constructor(cols: number, fillCellData?: ICellData, public isWrapped: boolean = false) {
-    this._data = new Uint32Array(cols * CELL_SIZE);
+    this._data = new Uint32Array(cols * Cell.SIZE);
     const cell = fillCellData || CellData.fromCharData([0, NULL_CELL_CHAR, NULL_CELL_WIDTH, NULL_CELL_CODE]);
     for (let i = 0; i < cols; ++i) {
       this.setCell(i, cell);
@@ -72,10 +46,10 @@ export class BufferLine implements IBufferLine {
    * @deprecated
    */
   public get(index: number): CharData {
-    const content = this._data[index * CELL_SIZE + Cell.CONTENT];
+    const content = this._data[index * Cell.SIZE + Cell.CONTENT];
     const cp = content & Content.CODEPOINT_MASK;
     return [
-      this._data[index * CELL_SIZE + Cell.FG],
+      this._data[index * Cell.SIZE + Cell.FG],
       (content & Content.IS_COMBINED_MASK)
         ? this._combined[index]
         : (cp) ? stringFromCodePoint(cp) : '',
@@ -91,12 +65,12 @@ export class BufferLine implements IBufferLine {
    * @deprecated
    */
   public set(index: number, value: CharData): void {
-    this._data[index * CELL_SIZE + Cell.FG] = value[CHAR_DATA_ATTR_INDEX];
+    this._data[index * Cell.SIZE + Cell.FG] = value[CHAR_DATA_ATTR_INDEX];
     if (value[CHAR_DATA_CHAR_INDEX].length > 1) {
       this._combined[index] = value[1];
-      this._data[index * CELL_SIZE + Cell.CONTENT] = index | Content.IS_COMBINED_MASK | (value[CHAR_DATA_WIDTH_INDEX] << Content.WIDTH_SHIFT);
+      this._data[index * Cell.SIZE + Cell.CONTENT] = index | Content.IS_COMBINED_MASK | (value[CHAR_DATA_WIDTH_INDEX] << Content.WIDTH_SHIFT);
     } else {
-      this._data[index * CELL_SIZE + Cell.CONTENT] = value[CHAR_DATA_CHAR_INDEX].charCodeAt(0) | (value[CHAR_DATA_WIDTH_INDEX] << Content.WIDTH_SHIFT);
+      this._data[index * Cell.SIZE + Cell.CONTENT] = value[CHAR_DATA_CHAR_INDEX].charCodeAt(0) | (value[CHAR_DATA_WIDTH_INDEX] << Content.WIDTH_SHIFT);
     }
   }
 
@@ -105,22 +79,22 @@ export class BufferLine implements IBufferLine {
    * use these when only one value is needed, otherwise use `loadCell`
    */
   public getWidth(index: number): number {
-    return this._data[index * CELL_SIZE + Cell.CONTENT] >> Content.WIDTH_SHIFT;
+    return this._data[index * Cell.SIZE + Cell.CONTENT] >> Content.WIDTH_SHIFT;
   }
 
   /** Test whether content has width. */
   public hasWidth(index: number): number {
-    return this._data[index * CELL_SIZE + Cell.CONTENT] & Content.WIDTH_MASK;
+    return this._data[index * Cell.SIZE + Cell.CONTENT] & Content.WIDTH_MASK;
   }
 
   /** Get FG cell component. */
   public getFg(index: number): number {
-    return this._data[index * CELL_SIZE + Cell.FG];
+    return this._data[index * Cell.SIZE + Cell.FG];
   }
 
   /** Get BG cell component. */
   public getBg(index: number): number {
-    return this._data[index * CELL_SIZE + Cell.BG];
+    return this._data[index * Cell.SIZE + Cell.BG];
   }
 
   /**
@@ -129,7 +103,7 @@ export class BufferLine implements IBufferLine {
    * from real empty cells.
    * */
   public hasContent(index: number): number {
-    return this._data[index * CELL_SIZE + Cell.CONTENT] & Content.HAS_CONTENT_MASK;
+    return this._data[index * Cell.SIZE + Cell.CONTENT] & Content.HAS_CONTENT_MASK;
   }
 
   /**
@@ -138,7 +112,7 @@ export class BufferLine implements IBufferLine {
    * a single UTF32 codepoint or the last codepoint of a combined string.
    */
   public getCodePoint(index: number): number {
-    const content = this._data[index * CELL_SIZE + Cell.CONTENT];
+    const content = this._data[index * Cell.SIZE + Cell.CONTENT];
     if (content & Content.IS_COMBINED_MASK) {
       return this._combined[index].charCodeAt(this._combined[index].length - 1);
     }
@@ -147,12 +121,12 @@ export class BufferLine implements IBufferLine {
 
   /** Test whether the cell contains a combined string. */
   public isCombined(index: number): number {
-    return this._data[index * CELL_SIZE + Cell.CONTENT] & Content.IS_COMBINED_MASK;
+    return this._data[index * Cell.SIZE + Cell.CONTENT] & Content.IS_COMBINED_MASK;
   }
 
   /** Returns the string content of the cell. */
   public getString(index: number): string {
-    const content = this._data[index * CELL_SIZE + Cell.CONTENT];
+    const content = this._data[index * Cell.SIZE + Cell.CONTENT];
     if (content & Content.IS_COMBINED_MASK) {
       return this._combined[index];
     }
@@ -168,7 +142,7 @@ export class BufferLine implements IBufferLine {
    * to GC as it significantly reduced the amount of new objects/references needed.
    */
   public loadCell(index: number, cell: ICellData): ICellData {
-    const startIndex = index * CELL_SIZE;
+    const startIndex = index * Cell.SIZE;
     cell.content = this._data[startIndex + Cell.CONTENT];
     cell.fg = this._data[startIndex + Cell.FG];
     cell.bg = this._data[startIndex + Cell.BG];
@@ -191,9 +165,9 @@ export class BufferLine implements IBufferLine {
     if (cell.bg & BgFlags.HAS_EXTENDED) {
       this._extendedAttrs[index] = cell.extended;
     }
-    this._data[index * CELL_SIZE + Cell.CONTENT] = cell.content;
-    this._data[index * CELL_SIZE + Cell.FG] = cell.fg;
-    this._data[index * CELL_SIZE + Cell.BG] = cell.bg;
+    this._data[index * Cell.SIZE + Cell.CONTENT] = cell.content;
+    this._data[index * Cell.SIZE + Cell.FG] = cell.fg;
+    this._data[index * Cell.SIZE + Cell.BG] = cell.bg;
   }
 
   /**
@@ -205,9 +179,9 @@ export class BufferLine implements IBufferLine {
     if (bg & BgFlags.HAS_EXTENDED) {
       this._extendedAttrs[index] = eAttrs;
     }
-    this._data[index * CELL_SIZE + Cell.CONTENT] = codePoint | (width << Content.WIDTH_SHIFT);
-    this._data[index * CELL_SIZE + Cell.FG] = fg;
-    this._data[index * CELL_SIZE + Cell.BG] = bg;
+    this._data[index * Cell.SIZE + Cell.CONTENT] = codePoint | (width << Content.WIDTH_SHIFT);
+    this._data[index * Cell.SIZE + Cell.FG] = fg;
+    this._data[index * Cell.SIZE + Cell.BG] = bg;
   }
 
   /**
@@ -217,7 +191,7 @@ export class BufferLine implements IBufferLine {
    * by the previous `setDataFromCodePoint` call, we can omit it here.
    */
   public addCodepointToCell(index: number, codePoint: number): void {
-    let content = this._data[index * CELL_SIZE + Cell.CONTENT];
+    let content = this._data[index * Cell.SIZE + Cell.CONTENT];
     if (content & Content.IS_COMBINED_MASK) {
       // we already have a combined string, simply add
       this._combined[index] += stringFromCodePoint(codePoint);
@@ -234,7 +208,7 @@ export class BufferLine implements IBufferLine {
         // simply set the data in the cell buffer with a width of 1
         content = codePoint | (1 << Content.WIDTH_SHIFT);
       }
-      this._data[index * CELL_SIZE + Cell.CONTENT] = content;
+      this._data[index * Cell.SIZE + Cell.CONTENT] = content;
     }
   }
 
@@ -313,10 +287,10 @@ export class BufferLine implements IBufferLine {
       return;
     }
     if (cols > this.length) {
-      const data = new Uint32Array(cols * CELL_SIZE);
+      const data = new Uint32Array(cols * Cell.SIZE);
       if (this.length) {
-        if (cols * CELL_SIZE < this._data.length) {
-          data.set(this._data.subarray(0, cols * CELL_SIZE));
+        if (cols * Cell.SIZE < this._data.length) {
+          data.set(this._data.subarray(0, cols * Cell.SIZE));
         } else {
           data.set(this._data);
         }
@@ -327,8 +301,8 @@ export class BufferLine implements IBufferLine {
       }
     } else {
       if (cols) {
-        const data = new Uint32Array(cols * CELL_SIZE);
-        data.set(this._data.subarray(0, cols * CELL_SIZE));
+        const data = new Uint32Array(cols * Cell.SIZE);
+        data.set(this._data.subarray(0, cols * Cell.SIZE));
         this._data = data;
         // Remove any cut off combined data, FIXME: repeat this for extended attrs
         const keys = Object.keys(this._combined);
@@ -392,8 +366,8 @@ export class BufferLine implements IBufferLine {
 
   public getTrimmedLength(): number {
     for (let i = this.length - 1; i >= 0; --i) {
-      if ((this._data[i * CELL_SIZE + Cell.CONTENT] & Content.HAS_CONTENT_MASK)) {
-        return i + (this._data[i * CELL_SIZE + Cell.CONTENT] >> Content.WIDTH_SHIFT);
+      if ((this._data[i * Cell.SIZE + Cell.CONTENT] & Content.HAS_CONTENT_MASK)) {
+        return i + (this._data[i * Cell.SIZE + Cell.CONTENT] >> Content.WIDTH_SHIFT);
       }
     }
     return 0;
@@ -403,14 +377,14 @@ export class BufferLine implements IBufferLine {
     const srcData = src._data;
     if (applyInReverse) {
       for (let cell = length - 1; cell >= 0; cell--) {
-        for (let i = 0; i < CELL_SIZE; i++) {
-          this._data[(destCol + cell) * CELL_SIZE + i] = srcData[(srcCol + cell) * CELL_SIZE + i];
+        for (let i = 0; i < Cell.SIZE; i++) {
+          this._data[(destCol + cell) * Cell.SIZE + i] = srcData[(srcCol + cell) * Cell.SIZE + i];
         }
       }
     } else {
       for (let cell = 0; cell < length; cell++) {
-        for (let i = 0; i < CELL_SIZE; i++) {
-          this._data[(destCol + cell) * CELL_SIZE + i] = srcData[(srcCol + cell) * CELL_SIZE + i];
+        for (let i = 0; i < Cell.SIZE; i++) {
+          this._data[(destCol + cell) * Cell.SIZE + i] = srcData[(srcCol + cell) * Cell.SIZE + i];
         }
       }
     }
@@ -431,7 +405,7 @@ export class BufferLine implements IBufferLine {
     }
     let result = '';
     while (startCol < endCol) {
-      const content = this._data[startCol * CELL_SIZE + Cell.CONTENT];
+      const content = this._data[startCol * Cell.SIZE + Cell.CONTENT];
       const cp = content & Content.CODEPOINT_MASK;
       result += (content & Content.IS_COMBINED_MASK) ? this._combined[startCol] : (cp) ? stringFromCodePoint(cp) : WHITESPACE_CELL_CHAR;
       startCol += (content >> Content.WIDTH_SHIFT) || 1; // always advance by 1

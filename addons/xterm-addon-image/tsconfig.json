@@ -1,0 +1,9 @@
+{
+  "files": [],
+  "include": [],
+  "references": [
+    { "path": "./src" },
+    { "path": "./test" },
+    { "path": "./src-worker" }
+  ]
+}
