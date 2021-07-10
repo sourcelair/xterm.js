@@ -7,6 +7,7 @@ import { IRenderLayer } from './Types';
 import { acquireCharAtlas } from '../atlas/CharAtlasCache';
 import { Terminal } from 'xterm';
 import { IColorSet } from 'browser/Types';
+import { TEXT_BASELINE } from 'browser/renderer/atlas/Constants';
 import { IRenderDimensions } from 'browser/renderer/Types';
 import { CellData } from 'common/buffer/CellData';
 import { WebglCharAtlas } from 'atlas/WebglCharAtlas';
@@ -224,7 +225,7 @@ export abstract class BaseRenderLayer implements IRenderLayer {
    */
   protected _fillCharTrueColor(terminal: Terminal, cell: CellData, x: number, y: number): void {
     this._ctx.font = this._getFont(terminal, false, false);
-    this._ctx.textBaseline = 'ideographic';
+    this._ctx.textBaseline = TEXT_BASELINE;
     this._clipRow(terminal, y);
     this._ctx.fillText(
       cell.getChars(),

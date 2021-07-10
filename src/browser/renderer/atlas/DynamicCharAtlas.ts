@@ -3,7 +3,7 @@
  * @license MIT
  */
 
-import { DIM_OPACITY, INVERTED_DEFAULT_COLOR } from 'browser/renderer/atlas/Constants';
+import { DIM_OPACITY, INVERTED_DEFAULT_COLOR, TEXT_BASELINE } from 'browser/renderer/atlas/Constants';
 import { IGlyphIdentifier, ICharAtlasConfig } from 'browser/renderer/atlas/Types';
 import { BaseCharAtlas } from 'browser/renderer/atlas/BaseCharAtlas';
 import { DEFAULT_ANSI_COLORS } from 'browser/ColorManager';
@@ -256,7 +256,7 @@ export class DynamicCharAtlas extends BaseCharAtlas {
     const fontStyle = glyph.italic ? 'italic' : '';
     this._tmpCtx.font =
       `${fontStyle} ${fontWeight} ${this._config.fontSize * this._config.devicePixelRatio}px ${this._config.fontFamily}`;
-    this._tmpCtx.textBaseline = 'ideographic';
+    this._tmpCtx.textBaseline = TEXT_BASELINE;
 
     this._tmpCtx.fillStyle = this._getForegroundColor(glyph).css;
 
