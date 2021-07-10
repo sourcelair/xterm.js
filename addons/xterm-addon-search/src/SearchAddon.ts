@@ -3,7 +3,7 @@
  * @license MIT
  */
 
-import { Terminal, IDisposable, ITerminalAddon, ISelectionPosition } from 'xterm';
+import { Terminal, IBufferLine, IDisposable, ITerminalAddon, ISelectionPosition } from 'xterm';
 
 export interface ISearchOptions {
   regex?: boolean;
@@ -21,6 +21,7 @@ export interface ISearchResult {
   term: string;
   col: number;
   row: number;
+  size: number;
 }
 
 const NON_WORD_CHARACTERS = ' ~!@#$%^&*()+`-=[]{}|\;:"\',./<>?';
@@ -34,7 +35,7 @@ export class SearchAddon implements ITerminalAddon {
    * We memoize the calls into an array that has a time based ttl.
    * _linesCache is also invalidated when the terminal cursor moves.
    */
-  private _linesCache: string[] | undefined;
+  private _linesCache: [string, number[]][] | undefined;
   private _linesCacheTimeoutId = 0;
   private _cursorMoveListener: IDisposable | undefined;
   private _resizeListener: IDisposable | undefined;
@@ -257,7 +258,7 @@ export class SearchAddon implements ITerminalAddon {
    */
   protected _findInLine(term: string, searchPosition: ISearchPosition, searchOptions: ISearchOptions = {}, isReverseSearch: boolean = false): ISearchResult | undefined {
     const terminal = this._terminal!;
-    let row = searchPosition.startRow;
+    const row = searchPosition.startRow;
     const col = searchPosition.startCol;
 
     // Ignore wrapped lines, only consider on unwrapped line (first row of command string).
@@ -274,14 +275,16 @@ export class SearchAddon implements ITerminalAddon {
       searchPosition.startCol += terminal.cols;
       return this._findInLine(term, searchPosition, searchOptions);
     }
-    let stringLine = this._linesCache ? this._linesCache[row] : void 0;
-    if (stringLine === void 0) {
-      stringLine = this._translateBufferLineToStringWithWrap(row, true);
+    let cache = this._linesCache?.[row];
+    if (!cache) {
+      cache = this._translateBufferLineToStringWithWrap(row, true);
       if (this._linesCache) {
-        this._linesCache[row] = stringLine;
+        this._linesCache[row] = cache;
       }
     }
+    const [stringLine, offsets] = cache;
 
+    const offset = this._bufferColsToStringOffset(row, col);
     const searchTerm = searchOptions.caseSensitive ? term : term.toLowerCase();
     const searchStringLine = searchOptions.caseSensitive ? stringLine : stringLine.toLowerCase();
 
@@ -290,66 +293,106 @@ export class SearchAddon implements ITerminalAddon {
       const searchRegex = RegExp(searchTerm, 'g');
       let foundTerm: RegExpExecArray | null;
       if (isReverseSearch) {
-        // This loop will get the resultIndex of the _last_ regex match in the range 0..col
-        while (foundTerm = searchRegex.exec(searchStringLine.slice(0, col))) {
+        // This loop will get the resultIndex of the _last_ regex match in the range 0..offset
+        while (foundTerm = searchRegex.exec(searchStringLine.slice(0, offset))) {
           resultIndex = searchRegex.lastIndex - foundTerm[0].length;
           term = foundTerm[0];
           searchRegex.lastIndex -= (term.length - 1);
         }
       } else {
-        foundTerm = searchRegex.exec(searchStringLine.slice(col));
+        foundTerm = searchRegex.exec(searchStringLine.slice(offset));
         if (foundTerm && foundTerm[0].length > 0) {
-          resultIndex = col + (searchRegex.lastIndex - foundTerm[0].length);
+          resultIndex = offset + (searchRegex.lastIndex - foundTerm[0].length);
           term = foundTerm[0];
         }
       }
     } else {
       if (isReverseSearch) {
-        if (col - searchTerm.length >= 0) {
-          resultIndex = searchStringLine.lastIndexOf(searchTerm, col - searchTerm.length);
+        if (offset - searchTerm.length >= 0) {
+          resultIndex = searchStringLine.lastIndexOf(searchTerm, offset - searchTerm.length);
         }
       } else {
-        resultIndex = searchStringLine.indexOf(searchTerm, col);
+        resultIndex = searchStringLine.indexOf(searchTerm, offset);
       }
     }
 
     if (resultIndex >= 0) {
-      // Adjust the row number and search index if needed since a "line" of text can span multiple rows
-      if (resultIndex >= terminal.cols) {
-        row += Math.floor(resultIndex / terminal.cols);
-        resultIndex = resultIndex % terminal.cols;
-      }
       if (searchOptions.wholeWord && !this._isWholeWord(resultIndex, searchStringLine, term)) {
         return;
       }
 
-      const line = terminal.buffer.active.getLine(row);
-
-      if (line) {
-        for (let i = 0; i < resultIndex; i++) {
-          const cell = line.getCell(i);
-          if (!cell) {
-            break;
-          }
-          // Adjust the searchIndex to normalize emoji into single chars
-          const char = cell.getChars();
-          if (char.length > 1) {
-            resultIndex -= char.length - 1;
-          }
-          // Adjust the searchIndex for empty characters following wide unicode
-          // chars (eg. CJK)
-          const charWidth = cell.getWidth();
-          if (charWidth === 0) {
-            resultIndex++;
-          }
-        }
+      // Adjust the row number and search index if needed since a "line" of text can span multiple rows
+      let startRowOffset = 0;
+      while (startRowOffset < offsets.length - 1 && resultIndex >= offsets[startRowOffset + 1]) {
+        startRowOffset++;
       }
+      let endRowOffset = startRowOffset;
+      while (endRowOffset < offsets.length - 1 && resultIndex + term.length >= offsets[endRowOffset + 1]) {
+        endRowOffset++;
+      }
+      const startColOffset = resultIndex - offsets[startRowOffset];
+      const endColOffset = resultIndex + term.length - offsets[endRowOffset];
+      const startColIndex = this._stringLengthToBufferSize(row + startRowOffset, startColOffset);
+      const endColIndex = this._stringLengthToBufferSize(row + endRowOffset, endColOffset);
+      const size = endColIndex - startColIndex + terminal.cols * (endRowOffset - startRowOffset);
+
       return {
         term,
-        col: resultIndex,
-        row
+        col: startColIndex,
+        row: row + startRowOffset,
+        size
       };
     }
+  }
+
+  private _stringLengthToBufferSize(row: number, offset: number): number {
+    const line = this._terminal!.buffer.active.getLine(row);
+    if (!line) {
+      return 0;
+    }
+    for (let i = 0; i < offset; i++) {
+      const cell = line.getCell(i);
+      if (!cell) {
+        break;
+      }
+      // Adjust the searchIndex to normalize emoji into single chars
+      const char = cell.getChars();
+      if (char.length > 1) {
+        offset -= char.length - 1;
+      }
+      // Adjust the searchIndex for empty characters following wide unicode
+      // chars (eg. CJK)
+      const nextCell = line.getCell(i + 1);
+      if (nextCell && nextCell.getWidth() === 0) {
+        offset++;
+      }
+    }
+    return offset;
+  }
+
+  private _bufferColsToStringOffset(startRow: number, cols: number): number {
+    const terminal = this._terminal!;
+    let lineIndex = startRow;
+    let offset = 0;
+    let line = terminal.buffer.active.getLine(lineIndex);
+    while (cols > 0 && line) {
+      for (let i = 0; i < cols && i < terminal.cols; i++) {
+        const cell = line.getCell(i);
+        if (!cell) {
+          break;
+        }
+        if (cell.getWidth()) {
+          offset += cell.getChars().length;
+        }
+      }
+      lineIndex++;
+      line = terminal.buffer.active.getLine(lineIndex);
+      if (line && !line.isWrapped) {
+        break;
+      }
+      cols -= terminal.cols;
+    }
+    return offset;
   }
 
   /**
@@ -360,23 +403,33 @@ export class SearchAddon implements ITerminalAddon {
    * @param line The line being translated.
    * @param trimRight Whether to trim whitespace to the right.
    */
-  private _translateBufferLineToStringWithWrap(lineIndex: number, trimRight: boolean): string {
+  private _translateBufferLineToStringWithWrap(lineIndex: number, trimRight: boolean): [string, number[]] {
     const terminal = this._terminal!;
-    let lineString = '';
-    let lineWrapsToNext: boolean;
-
-    do {
+    const strings = [];
+    const offsets = [0];
+    let line = terminal.buffer.active.getLine(lineIndex);
+    while (line) {
       const nextLine = terminal.buffer.active.getLine(lineIndex + 1);
-      lineWrapsToNext = nextLine ? nextLine.isWrapped : false;
-      const line = terminal.buffer.active.getLine(lineIndex);
-      if (!line) {
+      const lineWrapsToNext = nextLine ? nextLine.isWrapped : false;
+      let string = line.translateToString(!lineWrapsToNext && trimRight);
+      if (lineWrapsToNext && nextLine) {
+        const lastCell = line.getCell(line.length - 1);
+        const lastCellIsNull = lastCell && lastCell.getCode() === 0 && lastCell.getWidth() === 1;
+        // a wide character wrapped to the next line
+        if (lastCellIsNull && nextLine.getCell(0)?.getWidth() === 2) {
+          string = string.slice(0, -1);
+        }
+      }
+      strings.push(string);
+      if (lineWrapsToNext) {
+        offsets.push(offsets[offsets.length - 1] + string.length);
+      } else {
         break;
       }
-      lineString += line.translateToString(!lineWrapsToNext && trimRight).substring(0, terminal.cols);
       lineIndex++;
-    } while (lineWrapsToNext);
-
-    return lineString;
+      line = nextLine;
+    }
+    return [strings.join(''), offsets];
   }
 
   /**
@@ -390,7 +443,7 @@ export class SearchAddon implements ITerminalAddon {
       terminal.clearSelection();
       return false;
     }
-    terminal.select(result.col, result.row, result.term.length);
+    terminal.select(result.col, result.row, result.size);
     // If it is not in the viewport then we scroll else it just gets selected
     if (result.row >= (terminal.buffer.active.viewportY + terminal.rows) || result.row < terminal.buffer.active.viewportY) {
       let scroll = result.row - terminal.buffer.active.viewportY;
