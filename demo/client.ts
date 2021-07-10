@@ -52,6 +52,7 @@ let protocol;
 let socketURL;
 let socket;
 let pid;
+let decorationHandle;
 
 type AddonType = 'attach' | 'fit' | 'search' | 'serialize' | 'unicode11' | 'web-links' | 'webgl' | 'ligatures';
 
@@ -147,6 +148,7 @@ if (document.location.pathname === '/test') {
   createTerminal();
   document.getElementById('dispose').addEventListener('click', disposeRecreateButtonHandler);
   document.getElementById('serialize').addEventListener('click', serializeButtonHandler);
+  document.getElementById('decorations').addEventListener('click', decorationsButtonHandler);
 }
 
 function createTerminal(): void {
@@ -429,5 +431,19 @@ function serializeButtonHandler(): void {
   if ((document.getElementById('write-to-terminal') as HTMLInputElement).checked) {
     term.reset();
     term.write(output);
+  }
+}
+
+function decorationsButtonHandler(): void {
+  if (decorationHandle) {
+    term.removeDeoration(decorationHandle);
+    decorationHandle = null;
+  } else {
+    decorationHandle = term.addDecoration({
+      startColumn: 3, endColumn: 13,
+      startRow: 3, endRow: 8,
+      fillStyle: 'rgba(255, 0, 0, 0.7)',
+      strokeStyle: 'rgba(0, 0, 255, 0.7)',
+    });
   }
 }

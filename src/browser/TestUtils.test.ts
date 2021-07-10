@@ -9,7 +9,7 @@ import { ICharacterJoinerService, ICharSizeService, IMouseService, IRenderServic
 import { IRenderDimensions, IRenderer, IRequestRedrawEvent } from 'browser/renderer/Types';
 import { IColorSet, ILinkMatcherOptions, ITerminal, ILinkifier, ILinkifier2, IBrowser, IViewport, IColorManager, ICompositionHelper, CharacterJoinerHandler } from 'browser/Types';
 import { IBuffer, IBufferStringIterator, IBufferSet } from 'common/buffer/Types';
-import { IBufferLine, ICellData, IAttributeData, ICircularList, XtermListener, ICharset, ITerminalOptions } from 'common/Types';
+import { IBufferLine, ICellData, IAttributeData, ICircularList, XtermListener, ICharset, ITerminalOptions, IDecorationElement } from 'common/Types';
 import { Buffer } from 'common/buffer/Buffer';
 import * as Browser from 'common/Platform';
 import { Terminal } from 'browser/Terminal';
@@ -198,6 +198,15 @@ export class MockTerminal implements ITerminal {
   }
   public registerCharacterJoiner(handler: CharacterJoinerHandler): number { return 0; }
   public deregisterCharacterJoiner(joinerId: number): void { }
+  public addDecoration(element: IDecorationElement): number | undefined {
+    throw new Error('Method not implemented.');
+  }
+  public removeDeoration(handle: number): boolean {
+    throw new Error('Method not implemented.');
+  }
+  public clearDecorations(): number {
+    throw new Error('Method not implemented.');
+  }
 }
 
 export class MockBuffer implements IBuffer {
@@ -280,6 +289,7 @@ export class MockRenderer implements IRenderer {
   public onBlur(): void { }
   public onFocus(): void { }
   public onSelectionChanged(start: [number, number], end: [number, number]): void { }
+  public onDecorationsChanged(): void { }
   public onCursorMove(): void { }
   public onOptionsChanged(): void { }
   public onDevicePixelRatioChange(): void { }
@@ -400,6 +410,9 @@ export class MockRenderService implements IRenderService {
     throw new Error('Method not implemented.');
   }
   public onSelectionChanged(start: [number, number], end: [number, number], columnSelectMode: boolean): void {
+    throw new Error('Method not implemented.');
+  }
+  public onDecorationsChanged(): void {
     throw new Error('Method not implemented.');
   }
   public onCursorMove(): void {

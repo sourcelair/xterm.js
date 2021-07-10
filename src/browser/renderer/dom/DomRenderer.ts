@@ -337,6 +337,10 @@ export class DomRenderer extends Disposable implements IRenderer {
     return element;
   }
 
+  public onDecorationsChanged(): void {
+    // TBD
+  }
+
   public onCursorMove(): void {
     // No-op, the cursor is drawn when rows are drawn
   }

@@ -39,13 +39,13 @@ import { MouseZoneManager } from 'browser/MouseZoneManager';
 import { AccessibilityManager } from './AccessibilityManager';
 import { ITheme, IMarker, IDisposable, ISelectionPosition, ILinkProvider } from 'xterm';
 import { DomRenderer } from 'browser/renderer/dom/DomRenderer';
-import { IKeyboardEvent, KeyboardResultType, CoreMouseEventType, CoreMouseButton, CoreMouseAction, ITerminalOptions, ScrollSource, IAnsiColorChangeEvent } from 'common/Types';
+import { IKeyboardEvent, KeyboardResultType, CoreMouseEventType, CoreMouseButton, CoreMouseAction, ITerminalOptions, ScrollSource, IAnsiColorChangeEvent, IDecorationElement, IDecorationHandle } from 'common/Types';
 import { evaluateKeyboardEvent } from 'common/input/Keyboard';
 import { EventEmitter, IEvent, forwardEvent } from 'common/EventEmitter';
 import { DEFAULT_ATTR_DATA } from 'common/buffer/BufferLine';
 import { ColorManager } from 'browser/ColorManager';
 import { RenderService } from 'browser/services/RenderService';
-import { ICharSizeService, IRenderService, IMouseService, ISelectionService, ISoundService, ICoreBrowserService, ICharacterJoinerService } from 'browser/services/Services';
+import { ICharSizeService, IRenderService, IMouseService, ISelectionService, ISoundService, ICoreBrowserService, ICharacterJoinerService, IDecorationService } from 'browser/services/Services';
 import { CharSizeService } from 'browser/services/CharSizeService';
 import { IBuffer } from 'common/buffer/Types';
 import { MouseService } from 'browser/services/MouseService';
@@ -55,6 +55,7 @@ import { CoreTerminal } from 'common/CoreTerminal';
 import { ITerminalOptions as IInitializedTerminalOptions } from 'common/services/Services';
 import { rgba } from 'browser/Color';
 import { CharacterJoinerService } from 'browser/services/CharacterJoinerService';
+import { DecorationService } from 'browser/services/DecorationService';
 
 // Let it work inside Node.js for automated testing purposes.
 const document: Document = (typeof window !== 'undefined') ? window.document : null as any;
@@ -86,6 +87,7 @@ export class Terminal extends CoreTerminal implements ITerminal {
   private _characterJoinerService: ICharacterJoinerService | undefined;
   private _selectionService: ISelectionService | undefined;
   private _soundService: ISoundService | undefined;
+  private _decorationService: IDecorationService | undefined;
 
   /**
    * Records whether the keydown event has already been handled and triggered a data event, if so
@@ -456,6 +458,9 @@ export class Terminal extends CoreTerminal implements ITerminal {
     this._characterJoinerService = this._instantiationService.createInstance(CharacterJoinerService);
     this._instantiationService.setService(ICharacterJoinerService, this._characterJoinerService);
 
+    this._decorationService = this.register(this._instantiationService.createInstance(DecorationService));
+    this._instantiationService.setService(IDecorationService, this._decorationService);
+
     const renderer = this._createRenderer();
     this._renderService = this.register(this._instantiationService.createInstance(RenderService, renderer, this.rows, this.screenElement));
     this._instantiationService.setService(IRenderService, this._renderService);
@@ -513,6 +518,7 @@ export class Terminal extends CoreTerminal implements ITerminal {
     this.register(this._onScroll.event(ev => {
       this.viewport!.syncScrollArea();
       this._selectionService!.refresh();
+      this._renderService!.onDecorationsChanged();
     }));
     this.register(addDisposableDomListener(this._viewportElement, 'scroll', () => this._selectionService!.refresh()));
 
@@ -1277,6 +1283,22 @@ export class Terminal extends CoreTerminal implements ITerminal {
     return this.options.bellStyle === 'sound';
     // return this.options.bellStyle === 'sound' ||
     //     this.options.bellStyle === 'both';
+  }
+
+  public addDecoration(element: IDecorationElement): IDecorationHandle | undefined{
+    const ret = this._decorationService?.addDecoration(element);
+    this._renderService?.onDecorationsChanged();
+    return ret;
+  }
+  public removeDeoration(handle: IDecorationHandle): boolean {
+    const ret = !!(this._decorationService?.removeDeoration(handle));
+    this._renderService?.onDecorationsChanged();
+    return ret;
+  }
+  public clearDecorations(): number {
+    const ret = this._decorationService?.clearDecorations() || 0;
+    this._renderService?.onDecorationsChanged();
+    return ret;
   }
 }
 

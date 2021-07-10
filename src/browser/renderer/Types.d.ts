@@ -48,6 +48,7 @@ export interface IRenderer extends IDisposable {
   onBlur(): void;
   onFocus(): void;
   onSelectionChanged(start: [number, number] | undefined, end: [number, number] | undefined, columnSelectMode: boolean): void;
+  onDecorationsChanged(): void;
   onCursorMove(): void;
   onOptionsChanged(): void;
   clear(): void;
@@ -90,6 +91,11 @@ export interface IRenderLayer extends IDisposable {
    * Calls when the selection changes.
    */
   onSelectionChanged(start: [number, number] | undefined, end: [number, number] | undefined, columnSelectMode: boolean): void;
+
+  /**
+   * Called when decorations change
+   */
+  onDecorationsChanged(): void;
 
   /**
    * Resize the render layer.

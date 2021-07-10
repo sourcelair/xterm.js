@@ -8,7 +8,7 @@ import { IRenderDimensions, IRenderer } from 'browser/renderer/Types';
 import { IColorSet } from 'browser/Types';
 import { ISelectionRedrawRequestEvent as ISelectionRequestRedrawEvent, ISelectionRequestScrollLinesEvent } from 'browser/selection/Types';
 import { createDecorator } from 'common/services/ServiceRegistry';
-import { IDisposable } from 'common/Types';
+import { IDecorationHandle, IDecorationElement, IDisposable } from 'common/Types';
 
 export const ICharSizeService = createDecorator<ICharSizeService>('CharSizeService');
 export interface ICharSizeService {
@@ -64,6 +64,7 @@ export interface IRenderService extends IDisposable {
   onBlur(): void;
   onFocus(): void;
   onSelectionChanged(start: [number, number] | undefined, end: [number, number] | undefined, columnSelectMode: boolean): void;
+  onDecorationsChanged(): void;
   onCursorMove(): void;
   clear(): void;
 }
@@ -103,7 +104,6 @@ export interface ISoundService {
   playBellSound(): void;
 }
 
-
 export const ICharacterJoinerService = createDecorator<ICharacterJoinerService>('CharacterJoinerService');
 export interface ICharacterJoinerService {
   serviceBrand: undefined;
@@ -111,4 +111,14 @@ export interface ICharacterJoinerService {
   register(handler: (text: string) => [number, number][]): number;
   deregister(joinerId: number): boolean;
   getJoinedCharacters(row: number): [number, number][];
+}
+
+export const IDecorationService = createDecorator<IDecorationService>('DecorationService');
+export interface IDecorationService {
+  serviceBrand: undefined;
+
+  addDecoration(element: IDecorationElement): IDecorationHandle;
+  removeDeoration(handle: IDecorationHandle): boolean;
+  forEachDecoration(callback: (decoration: IDecorationElement) => boolean): void;
+  clearDecorations(): number;
 }

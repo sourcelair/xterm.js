@@ -204,6 +204,10 @@ export class WebglRenderer extends Disposable implements IRenderer {
     this._onRequestRedraw.fire({ start: 0, end: this._terminal.rows - 1 });
   }
 
+  public onDecorationsChanged(): void {
+    // TBD
+  }
+
   public onCursorMove(): void {
     for (const l of this._renderLayers) {
       l.onCursorMove(this._terminal);

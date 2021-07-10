@@ -5,7 +5,7 @@
 
 import { Terminal as ITerminalApi, ITerminalOptions, IMarker, IDisposable, ILinkMatcherOptions, ITheme, ILocalizableStrings, ITerminalAddon, ISelectionPosition, IBuffer as IBufferApi, IBufferNamespace as IBufferNamespaceApi, IBufferLine as IBufferLineApi, IBufferCell as IBufferCellApi, IParser, IFunctionIdentifier, ILinkProvider, IUnicodeHandling, IUnicodeVersionProvider, FontWeight } from 'xterm';
 import { ITerminal } from 'browser/Types';
-import { IBufferLine, ICellData } from 'common/Types';
+import { IBufferLine, ICellData, IDecorationElement, IDecorationHandle } from 'common/Types';
 import { IBuffer, IBufferSet } from 'common/buffer/Types';
 import { CellData } from 'common/buffer/CellData';
 import { Terminal as TerminalCore } from '../Terminal';
@@ -175,6 +175,16 @@ export class Terminal implements ITerminalApi {
   public paste(data: string): void {
     this._core.paste(data);
   }
+  public addDecoration(element: IDecorationElement): IDecorationHandle | undefined {
+    return this._core.addDecoration(element);
+  }
+  public removeDeoration(handle: IDecorationHandle): boolean {
+    return this._core.removeDeoration(handle);
+  }
+  public clearDecorations(): number {
+    return this._core.clearDecorations();
+  }
+
   public getOption(key: 'bellSound' | 'bellStyle' | 'cursorStyle' | 'fontFamily' | 'logLevel' | 'rendererType' | 'termName' | 'wordSeparator'): string;
   public getOption(key: 'allowTransparency' | 'altClickMovesCursor' | 'cancelEvents' | 'convertEol' | 'cursorBlink' | 'disableStdin' | 'macOptionIsMeta' | 'rightClickSelectsWord' | 'popOnBell' | 'visualBell'): boolean;
   public getOption(key: 'cols' | 'fontSize' | 'letterSpacing' | 'lineHeight' | 'rows' | 'tabStopWidth' | 'scrollback'): number;

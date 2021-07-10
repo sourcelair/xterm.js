@@ -449,3 +449,13 @@ interface IParseStack {
   decodedLength: number;
   position: number;
 }
+
+export type IDecorationHandle = number;
+interface IDecorationElement {
+  startColumn: number;
+  endColumn: number;
+  startRow: number;
+  endRow: number;
+  fillStyle: string | CanvasGradient | CanvasPattern;
+  strokeStyle: string | CanvasGradient | CanvasPattern;
+}

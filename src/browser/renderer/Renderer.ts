@@ -14,6 +14,7 @@ import { ICharSizeService, ICoreBrowserService } from 'browser/services/Services
 import { IBufferService, IOptionsService, ICoreService, IInstantiationService } from 'common/services/Services';
 import { removeTerminalFromCache } from 'browser/renderer/atlas/CharAtlasCache';
 import { EventEmitter, IEvent } from 'common/EventEmitter';
+import { DecorationRenderLayer } from 'browser/renderer/DecorationRenderLayer';
 
 let nextRendererId = 1;
 
@@ -44,7 +45,8 @@ export class Renderer extends Disposable implements IRenderer {
       instantiationService.createInstance(TextRenderLayer, this._screenElement, 0, this._colors, allowTransparency, this._id),
       instantiationService.createInstance(SelectionRenderLayer, this._screenElement, 1, this._colors, this._id),
       instantiationService.createInstance(LinkRenderLayer, this._screenElement, 2, this._colors, this._id, linkifier, linkifier2),
-      instantiationService.createInstance(CursorRenderLayer, this._screenElement, 3, this._colors, this._id, this._onRequestRedraw)
+      instantiationService.createInstance(DecorationRenderLayer, this._screenElement, 3, this._colors, this._id),
+      instantiationService.createInstance(CursorRenderLayer, this._screenElement, 4, this._colors, this._id, this._onRequestRedraw)
     ];
     this.dimensions = {
       scaledCharWidth: 0,
@@ -119,6 +121,10 @@ export class Renderer extends Disposable implements IRenderer {
 
   public onSelectionChanged(start: [number, number] | undefined, end: [number, number] | undefined, columnSelectMode: boolean = false): void {
     this._runOperation(l => l.onSelectionChanged(start, end, columnSelectMode));
+  }
+
+  public onDecorationsChanged(): void {
+    this._runOperation(l => l.onDecorationsChanged());
   }
 
   public onCursorMove(): void {

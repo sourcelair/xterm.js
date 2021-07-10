@@ -79,6 +79,7 @@ export abstract class BaseRenderLayer implements IRenderLayer {
   public onCursorMove(): void {}
   public onGridChanged(startRow: number, endRow: number): void {}
   public onSelectionChanged(start: [number, number] | undefined, end: [number, number] | undefined, columnSelectMode: boolean = false): void {}
+  public onDecorationsChanged(): void {}
 
   public setColors(colorSet: IColorSet): void {
     this._refreshCharAtlas(colorSet);

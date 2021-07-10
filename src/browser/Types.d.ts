@@ -5,7 +5,7 @@
 
 import { IDisposable, IMarker, ISelectionPosition } from 'xterm';
 import { IEvent } from 'common/EventEmitter';
-import { ICoreTerminal, CharData, ITerminalOptions } from 'common/Types';
+import { ICoreTerminal, CharData, ITerminalOptions, IDecorationElement, IDecorationHandle } from 'common/Types';
 import { IMouseService, IRenderService } from './services/Services';
 import { IBuffer, IBufferSet } from 'common/buffer/Types';
 import { IFunctionIdentifier, IParams } from 'common/parser/Types';
@@ -81,6 +81,9 @@ export interface IPublicTerminal extends IDisposable {
   paste(data: string): void;
   refresh(start: number, end: number): void;
   reset(): void;
+  addDecoration(element: IDecorationElement): IDecorationHandle | undefined;
+  removeDeoration(handle: IDecorationHandle): boolean;
+  clearDecorations(): number;
 }
 
 export type CustomKeyEventHandler = (event: KeyboardEvent) => boolean;
