@@ -3,7 +3,8 @@
  * @license MIT
  */
 
-import { Terminal, IDisposable, ITerminalAddon, ISelectionPosition } from 'xterm';
+import { Terminal, IDisposable, ITerminalAddon, ISelectionPosition, IMarker } from 'xterm';
+import { AvlTree } from '@tyriar/avl-tree';
 
 export interface ISearchOptions {
   regex?: boolean;
@@ -26,16 +27,23 @@ export interface ISearchResult {
 const NON_WORD_CHARACTERS = ' ~!@#$%^&*()+`-=[]{}|\;:"\',./<>?';
 const LINES_CACHE_TIME_TO_LIVE = 15 * 1000; // 15 secs
 
+interface IMarkerKey {
+  readonly line: number;
+}
+
 export class SearchAddon implements ITerminalAddon {
   private _terminal: Terminal | undefined;
 
   /**
-   * translateBufferLineToStringWithWrap is a fairly expensive call.
-   * We memoize the calls into an array that has a time based ttl.
-   * _linesCache is also invalidated when the terminal cursor moves.
+   * translateBufferLineToStringWithWrap is a fairly expensive call. We memoize the calls into an
+   * cache that has a time based ttl. _lineCache is also invalidated when the terminal cursor moves.
+   * An AVL tree is used here with a custom key based on markers to support caching even though the
+   * keys change when trimming of the buffer occurs. This ends up working because when keys change
+   * they all change by the same amount such that the AVL tree's structure remains correct.
    */
-  private _linesCache: string[] | undefined;
-  private _linesCacheTimeoutId = 0;
+  private _lineCache: AvlTree<IMarkerKey, string> | undefined;
+
+  private _lineCacheTimeoutId = 0;
   private _cursorMoveListener: IDisposable | undefined;
   private _resizeListener: IDisposable | undefined;
 
@@ -74,7 +82,7 @@ export class SearchAddon implements ITerminalAddon {
       startCol = incremental ? currentSelection.startColumn : currentSelection.endColumn;
     }
 
-    this._initLinesCache();
+    this._getLineCache();
 
     const searchPosition: ISearchPosition = {
       startRow,
@@ -151,7 +159,7 @@ export class SearchAddon implements ITerminalAddon {
       startCol = currentSelection.startColumn;
     }
 
-    this._initLinesCache();
+    this._initLineCache();
     const searchPosition: ISearchPosition = {
       startRow,
       startCol
@@ -205,20 +213,33 @@ export class SearchAddon implements ITerminalAddon {
   /**
    * Sets up a line cache with a ttl
    */
-  private _initLinesCache(): void {
-    const terminal = this._terminal!;
-    if (!this._linesCache) {
-      this._linesCache = new Array(terminal.buffer.active.length);
-      this._cursorMoveListener = terminal.onCursorMove(() => this._destroyLinesCache());
-      this._resizeListener = terminal.onResize(() => this._destroyLinesCache());
+  private _getLineCache(): AvlTree<IMarkerKey, string> {
+    if (!this._lineCache) {
+      this._lineCache = new AvlTree((a, b) => {
+        if (a.line > b.line) {
+          return 1;
+        }
+        if (a.line < b.line) {
+          return -1;
+        }
+        return 0;
+      });
+      this._cursorMoveListener = this._terminal!.onCursorMove(() => this._destroyLinesCache());
+      this._resizeListener = this._terminal!.onResize(() => this._destroyLinesCache());
     }
+    return this._lineCache;
+  }
 
-    window.clearTimeout(this._linesCacheTimeoutId);
-    this._linesCacheTimeoutId = window.setTimeout(() => this._destroyLinesCache(), LINES_CACHE_TIME_TO_LIVE);
+  private _initLineCache(): void {
+    if (!this._lineCache) {
+      this._getLineCache();
+    }
+    window.clearTimeout(this._lineCacheTimeoutId);
+    this._lineCacheTimeoutId = window.setTimeout(() => this._destroyLinesCache(), LINES_CACHE_TIME_TO_LIVE);
   }
 
   private _destroyLinesCache(): void {
-    this._linesCache = undefined;
+    this._lineCache = undefined;
     if (this._cursorMoveListener) {
       this._cursorMoveListener.dispose();
       this._cursorMoveListener = undefined;
@@ -227,9 +248,9 @@ export class SearchAddon implements ITerminalAddon {
       this._resizeListener.dispose();
       this._resizeListener = undefined;
     }
-    if (this._linesCacheTimeoutId) {
-      window.clearTimeout(this._linesCacheTimeoutId);
-      this._linesCacheTimeoutId = 0;
+    if (this._lineCacheTimeoutId) {
+      window.clearTimeout(this._lineCacheTimeoutId);
+      this._lineCacheTimeoutId = 0;
     }
   }
 
@@ -274,11 +295,19 @@ export class SearchAddon implements ITerminalAddon {
       searchPosition.startCol += terminal.cols;
       return this._findInLine(term, searchPosition, searchOptions);
     }
-    let stringLine = this._linesCache ? this._linesCache[row] : void 0;
-    if (stringLine === void 0) {
+
+    const lineCache = this._getLineCache();
+    let stringLine = lineCache.get({ line: row });
+    if (stringLine === undefined) {
+      stringLine = '';
+    }
+    if (stringLine === null) {
       stringLine = this._translateBufferLineToStringWithWrap(row, true);
-      if (this._linesCache) {
-        this._linesCache[row] = stringLine;
+      // Create the marker relative to baseY since they are typically only created on the viewport
+      const rowRelativeToViewport = row - this._terminal!.buffer.active.baseY - this._terminal!.buffer.active.cursorY;
+      const marker = this._terminal!.registerMarker(rowRelativeToViewport);
+      if (marker) {
+        lineCache.insert(marker, stringLine);
       }
     }
 
