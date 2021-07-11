@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig-library-base",
+  "compilerOptions": {
+    "lib": [
+      "es2015",
+      "es2016.Array.Include"
+    ],
+    "outDir": "../../../xterm-core", // Temporary outdir to avoid collisions with 'xterm'
+    "types": [
+      "../../../node_modules/@types/mocha",
+      "../../../node_modules/@types/node"
+    ],
+    "baseUrl": "../../",
+    "extendedDiagnostics": true
+  },
+  "include": [
+    "../**/*",
+    "../../../typings/xterm-core.d.ts",
+    "../../../typings/xterm.d.ts", // common/Types.d.ts imports from 'xterm'
+  ],
+}

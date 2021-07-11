@@ -10,6 +10,7 @@
   "scripts": {
     "prepackage": "npm run build",
     "package": "webpack",
+    "compile": "tsc -b ./src/common/public/tsconfig.json",
     "start": "node demo/start",
     "start-debug": "node --inspect-brk demo/start",
     "lint": "eslint -c .eslintrc.json --max-warnings 0 --ext .ts src/ addons/",
