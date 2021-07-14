@@ -85,6 +85,12 @@ export class SelectionService extends Disposable implements ISelectionService {
    */
   protected _activeSelectionMode: SelectionMode;
 
+
+  /**
+   * The [x, y] dimension of the terminal.
+   */
+  private _terminalDimensions: [number, number] | undefined;
+
   /**
    * A setInterval timer that is active while the mouse is down whose callback
    * scrolls the viewport when necessary.
@@ -147,6 +153,7 @@ export class SelectionService extends Disposable implements ISelectionService {
 
     this._model = new SelectionModel(this._bufferService);
     this._activeSelectionMode = SelectionMode.NORMAL;
+    this._terminalDimensions = [this._bufferService.cols, this._bufferService.rows];
   }
 
   public dispose(): void {
@@ -310,9 +317,9 @@ export class SelectionService extends Disposable implements ISelectionService {
 
   protected _areCoordsInSelection(coords: [number, number], start: [number, number], end: [number, number]): boolean {
     return (coords[1] > start[1] && coords[1] < end[1]) ||
-        (start[1] === end[1] && coords[1] === start[1] && coords[0] >= start[0] && coords[0] < end[0]) ||
-        (start[1] < end[1] && coords[1] === end[1] && coords[0] < end[0]) ||
-        (start[1] < end[1] && coords[1] === start[1] && coords[0] >= start[0]);
+      (start[1] === end[1] && coords[1] === start[1] && coords[0] >= start[0] && coords[0] < end[0]) ||
+      (start[1] < end[1] && coords[1] === end[1] && coords[0] < end[0]) ||
+      (start[1] < end[1] && coords[1] === start[1] && coords[0] >= start[0]);
   }
 
   /**
@@ -732,7 +739,7 @@ export class SelectionService extends Disposable implements ISelectionService {
     this._onSelectionChange.fire();
   }
 
-  private _onBufferActivate(e: {activeBuffer: IBuffer, inactiveBuffer: IBuffer}): void {
+  private _onBufferActivate(e: { activeBuffer: IBuffer, inactiveBuffer: IBuffer }): void {
     this.clearSelection();
     // Only adjust the selection on trim, shiftElements is rarely used (only in
     // reverseIndex) and delete in a splice is only ever used when the same
@@ -886,10 +893,10 @@ export class SelectionService extends Disposable implements ISelectionService {
     // Calculate the start _column_, converting the the string indexes back to
     // column coordinates.
     let start =
-        startIndex // The index of the selection's start char in the line string
-        + charOffset // The difference between the initial char's column and index
-        - leftWideCharCount // The number of wide chars left of the initial char
-        + leftLongCharOffset; // The number of additional chars left of the initial char added by columns with strings longer than 1 (emojis)
+      startIndex // The index of the selection's start char in the line string
+      + charOffset // The difference between the initial char's column and index
+      - leftWideCharCount // The number of wide chars left of the initial char
+      + leftLongCharOffset; // The number of additional chars left of the initial char added by columns with strings longer than 1 (emojis)
 
     // Calculate the length in _columns_, converting the the string indexes back
     // to column coordinates.
@@ -1005,5 +1012,60 @@ export class SelectionService extends Disposable implements ISelectionService {
     this._model.selectionStart = [0, wrappedRange.first];
     this._model.selectionEnd = [this._bufferService.cols, wrappedRange.last];
     this._model.selectionStartLength = 0;
+  }
+
+  public resize(cols: number, rows: number): void {
+    const newTerminalDimensions: [number, number] = [cols, rows];
+    if (this._model.selectionStart === undefined || this._terminalDimensions === undefined) {
+      this._terminalDimensions = newTerminalDimensions;
+      return;
+    }
+
+    let startLine = this._bufferService.buffer.lines.get(this._model.selectionStart[1]);
+    let startLineIndex = this._model.selectionStart[1];
+    while (startLineIndex > 0 && startLine?.isWrapped) {
+      startLineIndex--;
+      startLine = this._bufferService.buffer.lines.get(startLineIndex);
+    }
+
+    let endLineIndex = startLineIndex;
+    if (this._model.selectionEnd !== undefined) {
+      let endLine = this._bufferService.buffer.lines.get(this._model.selectionEnd[1]);
+      endLineIndex = this._model.selectionEnd[1];
+      while (endLineIndex > 0 && endLine?.isWrapped) {
+        endLineIndex--;
+        endLine = this._bufferService.buffer.lines.get(endLineIndex);
+      }
+    }
+
+    const start = this._model.selectionStart[0] + ((this._model.selectionStart[1] - startLineIndex) * this._terminalDimensions[0]);
+    const end = this._model.selectionEnd === undefined ?
+      start + this._model.selectionStartLength :
+      this._model.selectionEnd[0] + ((this._model.selectionEnd[1] - endLineIndex) * this._terminalDimensions[0]);
+
+    const selectionStart: [number, number] = [start % cols, startLineIndex + Math.floor(start / cols)];
+    const selectionEnd: [number, number] = [end % cols, endLineIndex + Math.floor(end / cols)];
+
+    this._terminalDimensions = newTerminalDimensions;
+    if (this._didStateChange(selectionStart, selectionEnd)) {
+      this._model.selectionStart = selectionStart;
+      this._model.selectionEnd = selectionEnd;
+
+      this.refresh();
+      this._onSelectionChange.fire();
+    }
+  }
+
+  private _didStateChange(start: [number, number] | undefined, end: [number, number] | undefined): boolean {
+    return !this._areCoordinatesEqual(start, this._model.selectionStart) ||
+      !this._areCoordinatesEqual(end, this._model.selectionEnd);
+  }
+
+  private _areCoordinatesEqual(coord1: [number, number] | undefined, coord2: [number, number] | undefined): boolean {
+    if (!coord1 || !coord2) {
+      return false;
+    }
+
+    return coord1[0] === coord2[0] && coord1[1] === coord2[1];
   }
 }

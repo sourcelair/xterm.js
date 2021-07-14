@@ -41,8 +41,10 @@ export class SelectionRenderLayer extends BaseRenderLayer {
 
   public resize(dim: IRenderDimensions): void {
     super.resize(dim);
-    // Resizing the canvas discards the contents of the canvas so clear state
-    this._clearState();
+    // Redraw state after it got cleared
+    if (this._state.start && this._state.end) {
+      this._drawState(this._state);
+    }
   }
 
   public reset(): void {
@@ -58,18 +60,38 @@ export class SelectionRenderLayer extends BaseRenderLayer {
       return;
     }
 
+    // Draw state
+    this._drawState({
+      start: start,
+      end: end,
+      columnSelectMode: columnSelectMode,
+      ydisp: this._bufferService.buffer.ydisp
+    });
+
+    if (!start || !end) {
+      return;
+    }
+
+    // Save state for next render
+    this._state.start = [start[0], start[1]];
+    this._state.end = [end[0], end[1]];
+    this._state.columnSelectMode = columnSelectMode;
+    this._state.ydisp = this._bufferService.buffer.ydisp;
+  }
+
+  private _drawState(stateToDraw: ISelectionState): void {
     // Remove all selections
     this._clearAll();
 
     // Selection does not exist
-    if (!start || !end) {
+    if (!stateToDraw.start || !stateToDraw.end) {
       this._clearState();
       return;
     }
 
     // Translate from buffer position to viewport position
-    const viewportStartRow = start[1] - this._bufferService.buffer.ydisp;
-    const viewportEndRow = end[1] - this._bufferService.buffer.ydisp;
+    const viewportStartRow = stateToDraw.start[1] - this._bufferService.buffer.ydisp;
+    const viewportEndRow = stateToDraw.end[1] - this._bufferService.buffer.ydisp;
     const viewportCappedStartRow = Math.max(viewportStartRow, 0);
     const viewportCappedEndRow = Math.min(viewportEndRow, this._bufferService.rows - 1);
 
@@ -81,15 +103,15 @@ export class SelectionRenderLayer extends BaseRenderLayer {
 
     this._ctx.fillStyle = this._colors.selectionTransparent.css;
 
-    if (columnSelectMode) {
-      const startCol = start[0];
-      const width = end[0] - startCol;
+    if (stateToDraw.columnSelectMode) {
+      const startCol = stateToDraw.start[0];
+      const width = stateToDraw.end[0] - startCol;
       const height = viewportCappedEndRow - viewportCappedStartRow + 1;
       this._fillCells(startCol, viewportCappedStartRow, width, height);
     } else {
       // Draw first row
-      const startCol = viewportStartRow === viewportCappedStartRow ? start[0] : 0;
-      const startRowEndCol = viewportCappedStartRow === viewportEndRow ? end[0] : this._bufferService.cols;
+      const startCol = viewportStartRow === viewportCappedStartRow ? stateToDraw.start[0] : 0;
+      const startRowEndCol = viewportCappedStartRow === viewportEndRow ? stateToDraw.end[0] : this._bufferService.cols;
       this._fillCells(startCol, viewportCappedStartRow, startRowEndCol - startCol, 1);
 
       // Draw middle rows
@@ -99,16 +121,10 @@ export class SelectionRenderLayer extends BaseRenderLayer {
       // Draw final row
       if (viewportCappedStartRow !== viewportCappedEndRow) {
         // Only draw viewportEndRow if it's not the same as viewportStartRow
-        const endCol = viewportEndRow === viewportCappedEndRow ? end[0] : this._bufferService.cols;
+        const endCol = viewportEndRow === viewportCappedEndRow ? stateToDraw.end[0] : this._bufferService.cols;
         this._fillCells(0, viewportCappedEndRow, endCol, 1);
       }
     }
-
-    // Save state for next render
-    this._state.start = [start[0], start[1]];
-    this._state.end = [end[0], end[1]];
-    this._state.columnSelectMode = columnSelectMode;
-    this._state.ydisp = this._bufferService.buffer.ydisp;
   }
 
   private _didStateChange(start: [number, number] | undefined, end: [number, number] | undefined, columnSelectMode: boolean, ydisp: number): boolean {

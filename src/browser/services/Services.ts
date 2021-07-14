@@ -92,6 +92,7 @@ export interface ISelectionService {
   rightClickSelect(event: MouseEvent): void;
   shouldColumnSelect(event: KeyboardEvent | MouseEvent): boolean;
   shouldForceSelection(event: MouseEvent): boolean;
+  resize(cols: number, rows: number): void;
   refresh(isLinuxMouseSelection?: boolean): void;
   onMouseDown(event: MouseEvent): void;
 }

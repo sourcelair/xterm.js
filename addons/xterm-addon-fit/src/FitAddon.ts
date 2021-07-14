@@ -37,12 +37,8 @@ export class FitAddon implements ITerminalAddon {
       return;
     }
 
-    // TODO: Remove reliance on private API
-    const core = (this._terminal as any)._core;
-
-    // Force a full render
+    // Resize terminal
     if (this._terminal.rows !== dims.rows || this._terminal.cols !== dims.cols) {
-      core._renderService.clear();
       this._terminal.resize(dims.cols, dims.rows);
     }
   }

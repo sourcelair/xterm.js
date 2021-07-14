@@ -490,5 +490,54 @@ describe('SelectionService', () => {
       assert.isFalse(selectionService.areCoordsInSelection([2, 1], [2, 0], [2, 1]));
     });
   });
+
+  describe('resize', () => {
+    it('should not change selection', () => {
+      buffer.lines.set(0, stringToRow('a   b'));
+      selectionService.selectWordAt([4, 0]);
+      selectionService.resize(50, 50);
+      assert.deepEqual(selectionService.model.selectionStart, [4, 0]);
+      assert.deepEqual(selectionService.model.selectionEnd, [5, 0]);
+    });
+
+    it('should change selection', () => {
+      buffer.lines.set(0, stringToRow('a   b'));
+      selectionService.selectWordAt([4, 0]);
+      selectionService.resize(2, 2);
+      assert.deepEqual(selectionService.model.selectionStart, [0, 2]);
+      assert.deepEqual(selectionService.model.selectionEnd, [1, 2]);
+    });
+
+    it('wrapped line', () => {
+      buffer.lines.set(0, stringToRow('abcdefghij'));
+      selectionService.selectWordAt([4, 0]);
+      selectionService.resize(2, 2);
+      assert.deepEqual(selectionService.model.selectionStart, [0, 0]);
+      assert.deepEqual(selectionService.model.selectionEnd, [0, 5]);
+    });
+
+    it('unwrapped line', () => {
+      buffer.lines.set(0, stringToRow('abcdefghij'));
+      buffer.lines.set(1, stringToRow('klmnopqrst'));
+      selectionService.model.selectionStart = [0, 0];
+      selectionService.model.selectionEnd = [10, 1];
+      selectionService.resize(2, 2);
+      assert.deepEqual(selectionService.model.selectionStart, [0, 0]);
+      assert.deepEqual(selectionService.model.selectionEnd, [0, 6]);
+    });
+
+    it('should select multiple lines', () => {
+      buffer.lines.length = 5;
+      buffer.lines.set(0, stringToRow('1'));
+      buffer.lines.set(1, stringToRow('2'));
+      buffer.lines.set(2, stringToRow('3'));
+      buffer.lines.set(3, stringToRow('4'));
+      buffer.lines.set(4, stringToRow('5'));
+      selectionService.selectLines(1, 3);
+      selectionService.resize(50, 50);
+      assert.deepEqual(selectionService.model.selectionStart, [0, 1]);
+      assert.deepEqual(selectionService.model.selectionEnd, [bufferService.cols, 3]);
+    });
+  });
 });
 
