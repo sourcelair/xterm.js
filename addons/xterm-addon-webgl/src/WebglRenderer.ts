@@ -84,6 +84,8 @@ export class WebglRenderer extends Disposable implements IRenderer {
     const contextAttributes = {
       antialias: false,
       depth: false,
+      premultipliedAlpha: true,
+      alpha: true,
       preserveDrawingBuffer
     };
     this._gl = this._canvas.getContext('webgl2', contextAttributes) as IWebGL2RenderingContext;

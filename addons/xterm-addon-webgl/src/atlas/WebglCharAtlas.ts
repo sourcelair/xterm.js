@@ -5,7 +5,7 @@
 
 import { ICharAtlasConfig } from './Types';
 import { DIM_OPACITY } from 'browser/renderer/atlas/Constants';
-import { IRasterizedGlyph, IBoundingBox, IRasterizedGlyphSet } from '../Types';
+import { IRasterizedGlyph, IRasterizedGlyphSet } from '../Types';
 import { DEFAULT_COLOR, Attributes } from 'common/buffer/Constants';
 import { throwIfFalsy } from '../WebglUtils';
 import { IColor } from 'browser/Types';
@@ -67,7 +67,6 @@ export class WebglCharAtlas implements IDisposable {
 
   public hasCanvasChanged = false;
 
-  private _workBoundingBox: IBoundingBox = { top: 0, left: 0, bottom: 0, right: 0 };
   private _workAttributeData: AttributeData = new AttributeData();
 
   constructor(
@@ -354,12 +353,14 @@ export class WebglCharAtlas implements IDisposable {
     }
 
     // draw the background
-    const backgroundColor = this._getBackgroundColor(bgColorMode, bgColor, inverse);
+    // const backgroundColor = this._getBackgroundColor(bgColorMode, bgColor, inverse);
     // Use a 'copy' composite operation to clear any existing glyph out of _tmpCtxWithAlpha, regardless of
     // transparency in backgroundColor
-    this._tmpCtx.globalCompositeOperation = 'copy';
-    this._tmpCtx.fillStyle = backgroundColor.css;
-    this._tmpCtx.fillRect(0, 0, this._tmpCanvas.width, this._tmpCanvas.height);
+    // this._tmpCtx.globalCompositeOperation = 'copy';
+    // this._tmpCtx.fillStyle = backgroundColor.css + '00';
+    // this._tmpCtx.fillRect(0, 0, this._tmpCanvas.width, this._tmpCanvas.height);
+
+    this._tmpCtx.clearRect(0, 0, this._tmpCanvas.width, this._tmpCanvas.height);
     this._tmpCtx.globalCompositeOperation = 'source-over';
 
     // draw the foreground/glyph
@@ -376,19 +377,8 @@ export class WebglCharAtlas implements IDisposable {
       this._tmpCtx.globalAlpha = DIM_OPACITY;
     }
 
-    // Check if the char is a powerline glyph, these will be restricted to a single cell glyph, no
-    // padding on either side that are allowed for other glyphs since they are designed to be pixel
-    // perfect but may render with "bad" anti-aliasing
-    let isPowerlineGlyph = false;
-    if (chars.length === 1) {
-      const code = chars.charCodeAt(0);
-      if (code >= 0xE0A0 && code <= 0xE0D6) {
-        isPowerlineGlyph = true;
-      }
-    }
-
-    // For powerline glyphs left/top padding is excluded (https://github.com/microsoft/vscode/issues/120129)
-    const padding = isPowerlineGlyph ? 0 : TMP_CANVAS_GLYPH_PADDING;
+    const padding = TMP_CANVAS_GLYPH_PADDING;
+    const metrics = this._tmpCtx.measureText(chars);
 
     // Draw the character
     this._tmpCtx.fillText(chars, padding, padding + this._config.scaledCharHeight);
@@ -427,142 +417,69 @@ export class WebglCharAtlas implements IDisposable {
     // }
 
     // Clear out the background color and determine if the glyph is empty.
-    const isEmpty = clearColor(imageData, backgroundColor);
+    // const isEmpty = clearColor(imageData, backgroundColor);
 
-    // Handle empty glyphs
-    if (isEmpty) {
+    // // Handle empty glyphs
+    // if (isEmpty) {
+    //   return NULL_RASTERIZED_GLYPH;
+    // }
+
+    const glyphLeft = Math.floor(-metrics.actualBoundingBoxLeft + padding);
+    const glyphTop = Math.floor(-metrics.actualBoundingBoxAscent + padding + this._config.scaledCharHeight);
+    const glyphWidth = Math.ceil(metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight);
+    const glyphHeight = Math.ceil(metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent);
+
+    if (glyphWidth === 0 && glyphHeight === 0) {
       return NULL_RASTERIZED_GLYPH;
     }
 
-    const rasterizedGlyph = this._findGlyphBoundingBox(imageData, this._workBoundingBox, allowedWidth, isPowerlineGlyph);
-    const clippedImageData = this._clipImageData(imageData, this._workBoundingBox);
-
     // Check if there is enough room in the current row and go to next if needed
-    if (this._currentRowX + this._config.scaledCharWidth > TEXTURE_WIDTH) {
+    if (this._currentRowX + Math.max(glyphWidth, this._config.scaledCharWidth) > TEXTURE_WIDTH) {
       this._currentRowX = 0;
       this._currentRowY += this._currentRowHeight;
       this._currentRowHeight = 0;
     }
 
-    // Record texture position
-    rasterizedGlyph.texturePosition.x = this._currentRowX;
-    rasterizedGlyph.texturePosition.y = this._currentRowY;
-    rasterizedGlyph.texturePositionClipSpace.x = this._currentRowX / TEXTURE_WIDTH;
-    rasterizedGlyph.texturePositionClipSpace.y = this._currentRowY / TEXTURE_HEIGHT;
-
-    // Update atlas current row
-    this._currentRowHeight = Math.max(this._currentRowHeight, rasterizedGlyph.size.y);
-    this._currentRowX += rasterizedGlyph.size.x;
-
     // putImageData doesn't do any blending, so it will overwrite any existing cache entry for us
-    this._cacheCtx.putImageData(clippedImageData, rasterizedGlyph.texturePosition.x, rasterizedGlyph.texturePosition.y);
+    this._cacheCtx.putImageData(
+      imageData,
+      this._currentRowX - glyphLeft,
+      this._currentRowY - glyphTop,
+      glyphLeft,
+      glyphTop,
+      glyphWidth,
+      glyphHeight
+    );
 
-    return rasterizedGlyph;
-  }
-
-  /**
-   * Given an ImageData object, find the bounding box of the non-transparent
-   * portion of the texture and return an IRasterizedGlyph with these
-   * dimensions.
-   * @param imageData The image data to read.
-   * @param boundingBox An IBoundingBox to put the clipped bounding box values.
-   */
-  private _findGlyphBoundingBox(imageData: ImageData, boundingBox: IBoundingBox, allowedWidth: number, restrictedGlyph: boolean): IRasterizedGlyph {
-    boundingBox.top = 0;
-    const height = restrictedGlyph ? this._config.scaledCharHeight : this._tmpCanvas.height;
-    const width = restrictedGlyph ? this._config.scaledCharWidth : allowedWidth;
-    let found = false;
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const alphaOffset = y * this._tmpCanvas.width * 4 + x * 4 + 3;
-        if (imageData.data[alphaOffset] !== 0) {
-          boundingBox.top = y;
-          found = true;
-          break;
-        }
-      }
-      if (found) {
-        break;
-      }
-    }
-    boundingBox.left = 0;
-    found = false;
-    for (let x = 0; x < width; x++) {
-      for (let y = 0; y < height; y++) {
-        const alphaOffset = y * this._tmpCanvas.width * 4 + x * 4 + 3;
-        if (imageData.data[alphaOffset] !== 0) {
-          boundingBox.left = x;
-          found = true;
-          break;
-        }
-      }
-      if (found) {
-        break;
-      }
-    }
-    boundingBox.right = width;
-    found = false;
-    for (let x = width - 1; x >= 0; x--) {
-      for (let y = 0; y < height; y++) {
-        const alphaOffset = y * this._tmpCanvas.width * 4 + x * 4 + 3;
-        if (imageData.data[alphaOffset] !== 0) {
-          boundingBox.right = x;
-          found = true;
-          break;
-        }
-      }
-      if (found) {
-        break;
-      }
-    }
-    boundingBox.bottom = height;
-    found = false;
-    for (let y = height - 1; y >= 0; y--) {
-      for (let x = 0; x < width; x++) {
-        const alphaOffset = y * this._tmpCanvas.width * 4 + x * 4 + 3;
-        if (imageData.data[alphaOffset] !== 0) {
-          boundingBox.bottom = y;
-          found = true;
-          break;
-        }
-      }
-      if (found) {
-        break;
-      }
-    }
-    return {
-      texturePosition: { x: 0, y: 0 },
-      texturePositionClipSpace: { x: 0, y: 0 },
+    // Record texture position
+    const rasterizedGlyph = {
+      texturePosition: {
+        x: this._currentRowX,
+        y: this._currentRowY
+      },
+      texturePositionClipSpace: {
+        x: this._currentRowX / TEXTURE_WIDTH,
+        y: this._currentRowY / TEXTURE_HEIGHT
+      },
       size: {
-        x: boundingBox.right - boundingBox.left + 1,
-        y: boundingBox.bottom - boundingBox.top + 1
+        x: glyphWidth,
+        y: glyphHeight
       },
       sizeClipSpace: {
-        x: (boundingBox.right - boundingBox.left + 1) / TEXTURE_WIDTH,
-        y: (boundingBox.bottom - boundingBox.top + 1) / TEXTURE_HEIGHT
+        x: glyphWidth / TEXTURE_WIDTH,
+        y: glyphHeight / TEXTURE_HEIGHT
       },
       offset: {
-        x: -boundingBox.left + (restrictedGlyph ? 0 : TMP_CANVAS_GLYPH_PADDING),
-        y: -boundingBox.top + (restrictedGlyph ? 0 : TMP_CANVAS_GLYPH_PADDING)
+        x: Math.floor(-metrics.actualBoundingBoxLeft),
+        y: Math.floor(-metrics.actualBoundingBoxAscent + this._config.scaledCharHeight)
       }
     };
-  }
 
-  private _clipImageData(imageData: ImageData, boundingBox: IBoundingBox): ImageData {
-    const width = boundingBox.right - boundingBox.left + 1;
-    const height = boundingBox.bottom - boundingBox.top + 1;
-    const clippedData = new Uint8ClampedArray(width * height * 4);
-    for (let y = boundingBox.top; y <= boundingBox.bottom; y++) {
-      for (let x = boundingBox.left; x <= boundingBox.right; x++) {
-        const oldOffset = y * this._tmpCanvas.width * 4 + x * 4;
-        const newOffset = (y - boundingBox.top) * width * 4 + (x - boundingBox.left) * 4;
-        clippedData[newOffset] = imageData.data[oldOffset];
-        clippedData[newOffset + 1] = imageData.data[oldOffset + 1];
-        clippedData[newOffset + 2] = imageData.data[oldOffset + 2];
-        clippedData[newOffset + 3] = imageData.data[oldOffset + 3];
-      }
-    }
-    return new ImageData(clippedData, width, height);
+    // Update atlas current row
+    this._currentRowHeight = Math.max(glyphHeight, this._currentRowHeight);
+    this._currentRowX += glyphWidth;
+
+    return rasterizedGlyph;
   }
 }
 
@@ -577,8 +494,8 @@ function clearColor(imageData: ImageData, color: IColor): boolean {
   const b = color.rgba >>> 8 & 0xFF;
   for (let offset = 0; offset < imageData.data.length; offset += 4) {
     if (imageData.data[offset] === r &&
-        imageData.data[offset + 1] === g &&
-        imageData.data[offset + 2] === b) {
+      imageData.data[offset + 1] === g &&
+      imageData.data[offset + 2] === b) {
       imageData.data[offset + 3] = 0;
     } else {
       isEmpty = false;

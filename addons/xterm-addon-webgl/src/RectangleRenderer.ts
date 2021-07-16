@@ -58,6 +58,11 @@ const BYTES_PER_RECTANGLE = INDICES_PER_RECTANGLE * Float32Array.BYTES_PER_ELEME
 
 const INITIAL_BUFFER_RECTANGLE_CAPACITY = 20 * INDICES_PER_RECTANGLE;
 
+const TRANSPARENT_COLOR = {
+  css: 'rgba(0, 0, 0, 0)',
+  rgba: 0
+};
+
 export class RectangleRenderer {
 
   private _program: WebGLProgram;
@@ -126,6 +131,8 @@ export class RectangleRenderer {
   public render(): void {
     const gl = this._gl;
 
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
     gl.useProgram(this._program);
 
     gl.bindVertexArray(this._vertexArrayObject);
@@ -154,21 +161,23 @@ export class RectangleRenderer {
   }
 
   private _updateCachedColors(): void {
-    this._bgFloat = this._colorToFloat32Array(this._colors.background);
+    // this._bgFloat = this._colorToFloat32Array(this._colors.background);
+    const bgFloat = this._colorToFloat32Array(TRANSPARENT_COLOR);
+    this._gl.clearColor(bgFloat[0], bgFloat[1], bgFloat[2], bgFloat[3]);
     this._selectionFloat = this._colorToFloat32Array(this._colors.selectionOpaque);
   }
 
   private _updateViewportRectangle(): void {
     // Set first rectangle that clears the screen
-    this._addRectangleFloat(
-      this._vertices.attributes,
-      0,
-      0,
-      0,
-      this._terminal.cols * this._dimensions.scaledCellWidth,
-      this._terminal.rows * this._dimensions.scaledCellHeight,
-      this._bgFloat
-    );
+    // this._addRectangleFloat(
+    //   this._vertices.attributes,
+    //   0,
+    //   0,
+    //   0,
+    //   this._terminal.cols * this._dimensions.scaledCellWidth,
+    //   this._terminal.rows * this._dimensions.scaledCellHeight,
+    //   this._bgFloat
+    // );
   }
 
   public updateSelection(model: ISelectionRenderModel): void {

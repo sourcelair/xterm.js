@@ -169,14 +169,14 @@ describe('WebGL Renderer Integration Tests', async () => {
       };
       await page.evaluate(`window.term.setOption('theme', ${JSON.stringify(theme)});`);
       await writeSync(page, `\\x1b[8;30m \\x1b[8;31m \\x1b[8;32m \\x1b[8;33m \\x1b[8;34m \\x1b[8;35m \\x1b[8;36m \\x1b[8;37m `);
-      await pollFor(page, () => getCellColor(1, 1), [0, 0, 0, 255]);
-      await pollFor(page, () => getCellColor(2, 1), [0, 0, 0, 255]);
-      await pollFor(page, () => getCellColor(3, 1), [0, 0, 0, 255]);
-      await pollFor(page, () => getCellColor(4, 1), [0, 0, 0, 255]);
-      await pollFor(page, () => getCellColor(5, 1), [0, 0, 0, 255]);
-      await pollFor(page, () => getCellColor(6, 1), [0, 0, 0, 255]);
-      await pollFor(page, () => getCellColor(7, 1), [0, 0, 0, 255]);
-      await pollFor(page, () => getCellColor(8, 1), [0, 0, 0, 255]);
+      await pollFor(page, () => getCellColor(1, 1), [0, 0, 0, 0]);
+      await pollFor(page, () => getCellColor(2, 1), [0, 0, 0, 0]);
+      await pollFor(page, () => getCellColor(3, 1), [0, 0, 0, 0]);
+      await pollFor(page, () => getCellColor(4, 1), [0, 0, 0, 0]);
+      await pollFor(page, () => getCellColor(5, 1), [0, 0, 0, 0]);
+      await pollFor(page, () => getCellColor(6, 1), [0, 0, 0, 0]);
+      await pollFor(page, () => getCellColor(7, 1), [0, 0, 0, 0]);
+      await pollFor(page, () => getCellColor(8, 1), [0, 0, 0, 0]);
     });
 
     itWebgl('background 0-15 inivisible', async () => {
@@ -339,7 +339,7 @@ describe('WebGL Renderer Integration Tests', async () => {
       await writeSync(page, data);
       for (let y = 0; y < 240 / 16; y++) {
         for (let x = 0; x < 16; x++) {
-          await pollFor(page, () => getCellColor(x + 1, y + 1), [0, 0, 0, 255]);
+          await pollFor(page, () => getCellColor(x + 1, y + 1), [0, 0, 0, 0]);
         }
       }
     });
@@ -664,7 +664,7 @@ describe('WebGL Renderer Integration Tests', async () => {
       await writeSync(page, data);
       for (let y = 0; y < 16; y++) {
         for (let x = 0; x < 16; x++) {
-          await pollFor(page, () => getCellColor(x + 1, y + 1), [0, 0, 0, 255]);
+          await pollFor(page, () => getCellColor(x + 1, y + 1), [0, 0, 0, 0]);
         }
       }
     });
@@ -845,7 +845,7 @@ describe('WebGL Renderer Integration Tests', async () => {
       };
       await page.evaluate(`window.term.setOption('theme', ${JSON.stringify(theme)});`);
       await writeSync(page, ` █\\x1b[7m█\\x1b[0m`);
-      await pollFor(page, () => getCellColor(1, 1), [0, 255, 0, 255]);
+      await pollFor(page, () => getCellColor(1, 1), [0, 0, 0, 0]);
       await pollFor(page, () => getCellColor(2, 1), [255, 0, 0, 255]);
       await pollFor(page, () => getCellColor(3, 1), [0, 255, 0, 255]);
       await page.evaluate(`window.term.selectAll()`);

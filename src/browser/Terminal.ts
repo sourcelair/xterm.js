@@ -260,6 +260,11 @@ export class Terminal extends CoreTerminal implements ITerminal {
       case 'theme':
         this._setTheme(this.optionsService.options.theme);
         break;
+      case 'allowTransparency':
+        if (this._colorManager) {
+          this._colorManager.allowTransparency = this.optionsService.options.allowTransparency;
+        }
+        break;
     }
   }
 

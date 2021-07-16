@@ -152,12 +152,14 @@ export class GlyphRenderer {
     this._atlasTexture = throwIfFalsy(gl.createTexture());
     gl.bindTexture(gl.TEXTURE_2D, this._atlasTexture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     // Allow drawing of transparent texture
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendEquation(gl.FUNC_ADD);
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
 
     // Set viewport
     this.onResize();
@@ -200,8 +202,8 @@ export class GlyphRenderer {
     }
 
     // a_origin
-    array[i    ] = -rasterizedGlyph.offset.x + this._dimensions.scaledCharLeft;
-    array[i + 1] = -rasterizedGlyph.offset.y + this._dimensions.scaledCharTop;
+    array[i    ] = rasterizedGlyph.offset.x + this._dimensions.scaledCharLeft;
+    array[i + 1] = rasterizedGlyph.offset.y + this._dimensions.scaledCharTop;
     // a_size
     array[i + 2] = rasterizedGlyph.size.x / this._dimensions.scaledCanvasWidth;
     array[i + 3] = rasterizedGlyph.size.y / this._dimensions.scaledCanvasHeight;
@@ -368,7 +370,6 @@ export class GlyphRenderer {
       gl.activeTexture(gl.TEXTURE0 + 0);
       gl.bindTexture(gl.TEXTURE_2D, this._atlasTexture);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this._atlas.cacheCanvas);
-      gl.generateMipmap(gl.TEXTURE_2D);
     }
 
     // Set uniforms
@@ -385,7 +386,6 @@ export class GlyphRenderer {
 
     gl.bindTexture(gl.TEXTURE_2D, this._atlasTexture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlas.cacheCanvas);
-    gl.generateMipmap(gl.TEXTURE_2D);
   }
 
   public setDimensions(dimensions: IRenderDimensions): void {
